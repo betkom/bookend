@@ -10,6 +10,7 @@ beforeEach(() => { db = new BookendDB(`spotify-recap-${Math.random()}`); });
 afterEach(async () => { await db.delete(); });
 const event = (id: string, value: number, timestamp = '2026-01-02T12:00:00.000Z', batchId = 'batch'): ReadingEvent => ({ id, value, timestamp, batchId,
   source: 'spotify', type: 'listened', rawTitle: 'Book', rawAuthor: '', sourceItemId: 'spotify:show:book', format: 'audio', extra: { chapterUri: 'chapter' } });
+
 const entries = async () => recapEntries(await loadRecapData(db));
 
 it.each([[95, 100, true], [94.999, 100, false], [100, 100, true], [150, 100, true], [100, undefined, false], [100, 0, false], [0, 5, false]])('completion for %s listened / %s runtime is %s', (minutes, runtime, finished) => {

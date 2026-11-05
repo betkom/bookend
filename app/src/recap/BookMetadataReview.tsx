@@ -22,6 +22,7 @@ export function BookMetadataReview({ entry }: { entry: RecapEntry }) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not reach Open Library. Check your connection.'); }
     finally { setBusy(false); }
   }
+
   async function choose(match: BookMetadataMatch) {
     setBusy(true); setError('');
     try {
@@ -30,6 +31,7 @@ export function BookMetadataReview({ entry }: { entry: RecapEntry }) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save book details. Please try again.'); }
     finally { setBusy(false); }
   }
+
   async function keepMatch() {
     setBusy(true); setError('');
     try { await keepBookMetadataMatch(db, entry.work.id); }

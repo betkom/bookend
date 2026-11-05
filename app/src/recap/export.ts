@@ -53,6 +53,7 @@ export async function cardPng(card: RecapCard): Promise<Blob> {
     return await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('PNG export failed.')), 'image/png'));
   } finally { URL.revokeObjectURL(url); }
 }
+
 export function downloadFile(file: File) {
   const url = URL.createObjectURL(file); const anchor = document.createElement('a');
   anchor.href = url; anchor.download = file.name; document.body.append(anchor); anchor.click(); anchor.remove();

@@ -10,4 +10,5 @@ export function isCoverUrl(value: unknown): value is string {
 }
 
 export const coverAddress = (url: string) => url.split('?')[0];
+
 export const missingCover = (url: string, missing?: string[]) => missing?.some((saved) => coverAddress(saved) === coverAddress(url)) ?? false;

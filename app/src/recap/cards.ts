@@ -6,8 +6,11 @@ export const themes = [paper, midnight];
 export type Theme = typeof paper;
 export interface RecapCard { id: string; title: string; description: string; svg: string }
 export const escapeXml = (value: string | number) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]!);
+
 const positive = (value: number) => Number.isFinite(value) && value > 0;
+
 const number = (value: number) => value > 0 && value < 0.1 ? '<0.1' : new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(value);
+
 const bookCount = (count: number) => `${number(count)} ${count === 1 ? 'book' : 'books'}`;
 
 /** Only usable, positive facts enter the story or its exported images. */
@@ -16,6 +19,7 @@ export function buildCards(stats: RecapStats, theme: Theme, covers: Record<strin
   const cards: RecapCard[] = [];
   const text = (value: string | number, x: number, y: number, size = 36, color = theme.ink, display = false) =>
     `<text x="${x}" y="${y}" fill="${color}" font-family="Inter Variable, Arial, sans-serif" font-weight="${display ? 900 : 400}" font-style="${display ? 'italic' : 'normal'}" font-size="${size}">${escapeXml(value)}</text>`;
+
   const lines = (value: string, y: number, size = 64, max = 25, x = 88, count = 3, display = false) => {
     const words = value.split(/\s+/); const rows: string[] = []; let row = '';
     for (const word of words) {
@@ -25,11 +29,14 @@ export function buildCards(stats: RecapStats, theme: Theme, covers: Record<strin
     if (row) rows.push(row);
     return rows.slice(0, count).map((r, i) => text(i === count - 1 && rows.length > count ? r.slice(0, -1) + '…' : r, x, y + i * size * 1.18, size, theme.ink, display)).join('');
   };
+
   const add = (id: string, title: string, headline: string, body: string, description: string) => {
     cards.push({ id, title, description, svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920"><style>${fontCss}</style><rect width="1080" height="1920" fill="${theme.background}"/><rect x="32" y="32" width="1016" height="1856" rx="44" fill="${theme.surface}"/>${text(periodLabel(stats.period), 88, 145, 34, theme.muted)}${text('Bookend', 788, 145, 38, theme.accent, true)}${lines(headline, 340, 88, 20, 88, 3, true)}${body}</svg>` });
   };
+
   const hero = (value: string | number, label: string, y = 1000) => text(value, 76, y, String(value).length > 5 ? 180 : 280, theme.accent, true)
     + lines(label, y + 120, 46, 36, 88, 2);
+
   const smallMetrics = (metrics: { value: number; label: string }[], y: number) => metrics.filter((metric) => positive(metric.value))
     .map((metric, i) => text(number(metric.value), 88 + i % 2 * 480, y + Math.floor(i / 2) * 250, 100, theme.accent, true)
       + lines(metric.label, y + 75 + Math.floor(i / 2) * 250, 32, 22, 88 + i % 2 * 480, 2)).join('');

@@ -14,6 +14,7 @@ const fakeFetch = (routes: Record<string, unknown>) => vi.fn(async (url: string 
   const body = routes[new URL(String(url)).pathname];
   return new Response(body === undefined ? '' : JSON.stringify(body), { status: body === undefined ? 404 : 200, headers: { 'Content-Type': 'application/json' } });
 }) as unknown as typeof fetch;
+
 const stats = async () => buildRecap(recapEntries(await loadRecapData(db)), { year: 2026 });
 
 it('backfills existing books with covers and labelled page estimates and persists them for offline use', async () => {

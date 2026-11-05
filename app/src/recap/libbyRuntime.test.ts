@@ -13,7 +13,9 @@ const catalogue = { id: '505740', type: { id: 'audiobook' }, formats: [
   { id: 'audiobook-overdrive', duration: '07:36:38' }, { id: 'audiobook-mp3', duration: '07:43:20' },
 ] };
 const fetcher = (data: unknown = catalogue, status = 200) => vi.fn(async () => new Response(JSON.stringify(data), { status })) as unknown as typeof fetch;
+
 const stats = async () => buildRecap(recapEntries(await loadRecapData(db)), { year: 2026 });
+
 async function existingRead() {
   await db.works.add({ id: 'w', title: 'The Adventures of Tom Sawyer', authors: ['Mark Twain'], genres: [] });
   await db.editions.add({ id: 'e', workId: 'w', format: 'audio', metadataCheckedAt: new Date().toISOString() });

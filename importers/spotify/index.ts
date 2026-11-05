@@ -2,7 +2,9 @@ import { ImportError, type Importer, type RawEvent } from '../types';
 
 type Row = Record<string, unknown>;
 const string = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+
 const object = (value: unknown): value is Row => !!value && typeof value === 'object' && !Array.isArray(value);
+
 const has = (row: Row, key: string) => Object.prototype.hasOwnProperty.call(row, key);
 const audiobookFields = ['audiobook_title', 'audiobook_uri', 'audiobook_chapter_uri', 'audiobook_chapter_title'];
 const mediaFields = [...audiobookFields, 'spotify_track_uri', 'spotify_episode_uri', 'master_metadata_track_name', 'episode_name'];

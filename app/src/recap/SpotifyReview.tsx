@@ -28,6 +28,7 @@ export function SpotifyReview({ book, data }: { book: SpotifyBook; data: RecapDa
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save runtime.'); }
     finally { setBusy(false); }
   }
+
   const time = (minutes: number) => `${Math.floor(Math.round(minutes) / 60)}h ${Math.round(minutes) % 60}m`;
   return <li className="recap-review-item"><details className="book-review">
     <summary><span className="review-heading"><strong>{work?.title ?? book.title}</strong>
