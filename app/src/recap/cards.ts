@@ -4,78 +4,121 @@ import midnight from '../../../themes/midnight/theme.json';
 
 export const themes = [paper, midnight];
 export type Theme = typeof paper;
-export interface RecapCard { id: string; title: string; svg: string }
+export interface RecapCard { id: string; title: string; description: string; svg: string }
 export const escapeXml = (value: string | number) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]!);
-const number = (n: number) => new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(n);
 
+const positive = (value: number) => Number.isFinite(value) && value > 0;
+
+const number = (value: number) => value > 0 && value < 0.1 ? '<0.1' : new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(value);
+
+const bookCount = (count: number) => `${number(count)} ${count === 1 ? 'book' : 'books'}`;
+
+/** Only usable, positive facts enter the story or its exported images. */
 export function buildCards(stats: RecapStats, theme: Theme, covers: Record<string, string> = {}, showAbandoned = false, fontCss = ''): RecapCard[] {
+  if (!positive(stats.total)) return [];
   const cards: RecapCard[] = [];
   const text = (value: string | number, x: number, y: number, size = 36, color = theme.ink, display = false) =>
     `<text x="${x}" y="${y}" fill="${color}" font-family="Inter Variable, Arial, sans-serif" font-weight="${display ? 900 : 400}" font-style="${display ? 'italic' : 'normal'}" font-size="${size}">${escapeXml(value)}</text>`;
-  const rule = (y: number) => `<path d="M88 ${y}H992" stroke="${theme.line}" stroke-width="2"/>`;
-  const lines = (value: string, y: number, size = 44, max = 33, x = 88, count = 3) => {
+
+  const lines = (value: string, y: number, size = 64, max = 25, x = 88, count = 3, display = false) => {
     const words = value.split(/\s+/); const rows: string[] = []; let row = '';
     for (const word of words) {
       const clipped = word.length > max ? `${word.slice(0, max - 1)}…` : word;
       if (row && (row + ' ' + clipped).length > max) { rows.push(row); row = clipped; } else row += (row ? ' ' : '') + clipped;
     }
     if (row) rows.push(row);
-    return rows.slice(0, count).map((r, i) => text(i === count - 1 && rows.length > count ? r.slice(0, -1) + '…' : r, x, y + i * size * 1.25, size)).join('');
+    return rows.slice(0, count).map((r, i) => text(i === count - 1 && rows.length > count ? r.slice(0, -1) + '…' : r, x, y + i * size * 1.18, size, theme.ink, display)).join('');
   };
-  const add = (id: string, title: string, body: string) => {
-    const index = cards.length + 1;
-    cards.push({ id, title, svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920"><style>${fontCss}</style><rect width="1080" height="1920" fill="${theme.background}"/><rect x="32" y="32" width="1016" height="1856" rx="44" fill="${theme.surface}"/>${text('Bookend', 88, 140, 38, theme.accent, true)}${text(periodLabel(stats.period).toUpperCase(), 88, 214, 26, theme.muted)}${rule(260)}${text(title, 88, 380, 76, theme.ink, true)}${body}${rule(1740)}${text(String(index).padStart(2, '0'), 940, 1810, 28, theme.accent)}</svg>` });
+
+  const add = (id: string, title: string, headline: string, body: string, description: string) => {
+    cards.push({ id, title, description, svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920"><style>${fontCss}</style><rect width="1080" height="1920" fill="${theme.background}"/><rect x="32" y="32" width="1016" height="1856" rx="44" fill="${theme.surface}"/>${text(periodLabel(stats.period), 88, 145, 34, theme.muted)}${text('Bookend', 788, 145, 38, theme.accent, true)}${lines(headline, 340, 88, 20, 88, 3, true)}${body}</svg>` });
   };
-  add('total', 'Books finished', text(stats.total, 80, 850, 320, theme.accent, true) + text('books finished', 88, 960, 64)
-    + (showAbandoned ? text(`${stats.abandoned} abandoned`, 88, 1500, 36, theme.muted) : ''));
-  let formatBody = text('Books by format', 88, 500, 34, theme.muted);
-  const labels = { paper: 'Paper', ebook: 'Ebook', audio: 'Audio' };
-  Object.entries(stats.formats).forEach(([format, count], i) => {
-    const y = 650 + i * 200;
-    formatBody += text(labels[format as keyof typeof labels], 88, y, 44) + text(`${Math.round(count / Math.max(stats.total, 1) * 100)}%`, 800, y, 52, theme.accent)
-      + `<rect x="88" y="${y + 40}" width="904" height="14" fill="${theme.line}"/><rect x="88" y="${y + 40}" width="${904 * count / Math.max(stats.total, 1)}" height="14" fill="${theme.accent}"/>`;
-  });
-  formatBody += text('Finished reads by source', 88, 1260, 32, theme.muted);
-  formatBody += Object.entries(stats.sources).filter(([, n]) => n > 0).map(([source, n], i) => text(`${source === 'paper' ? 'Paper' : source[0].toUpperCase() + source.slice(1)}  ·  ${n}  ·  ${Math.round(n / Math.max(stats.total, 1) * 100)}%`, 88, 1340 + i * 64, 38)).join('');
-  add('formats', 'Reading formats', formatBody);
-  const audioKnown = stats.minutesKnown + stats.runtimeKnown;
-  add('time', 'Hours & pages', text(stats.formats.audio > 0 && audioKnown === 0 ? 'Unknown' : number((stats.minutes + stats.runtimeMinutes) / 60), 88, 720, stats.formats.audio > 0 && audioKnown === 0 ? 130 : 180, theme.accent, true) + text(stats.runtimeKnown ? 'audio hours · estimated' : audioKnown === 0 && stats.formats.audio > 0 ? 'audio hours unavailable' : 'hours listened', 88, 820, 48)
-    + text(number(stats.pages), 88, 1150, 180, theme.accent, true) + text(stats.estimatedPages ? 'pages read · estimated' : 'pages read', 88, 1250, 48));
-  add('genres', 'Top genres', stats.genres.slice(0, 3).map(([genre, count], i) => text(`0${i + 1}`, 88, 620 + i * 330, 32, theme.accent)
-    + lines(genre, 710 + i * 330, 54, 26, 88, 2) + text(`${Math.round(count / Math.max(stats.total, 1) * 100)}% of finished reads`, 88, 860 + i * 330, 32, theme.muted)).join(''));
-  add('authors', 'Top authors', stats.authors.length ? stats.authors.slice(0, 3).map(([name, count], i) =>
-    text(`0${i + 1}`, 88, 570 + i * 340, 32, theme.accent) + lines(name, 660 + i * 340, 52, 28, 88, 2)
-    + text(`${number(count)} ${count === 1 ? 'book' : 'books'}`, 88, 820 + i * 340, 42, theme.accent)).join('')
-    : lines('No authors recorded yet.', 700, 60, 24));
-  add('discoveries', 'Discoveries', [
-    { value: stats.uniqueAuthors, label: 'unique authors', x: 88, y: 740 },
-    { value: stats.newAuthors.length, label: 'new authors', x: 570, y: 740 },
-    { value: stats.uniqueGenres, label: 'genres read', x: 88, y: 1250 },
-    { value: stats.newGenres.length, label: 'new genres', x: 570, y: 1250 },
-  ].map(({ value, label, x, y }) => text(number(value), x, y, 160, theme.accent, true) + text(label, x, y + 100, 42)).join(''));
-  add('library', 'Library books', text(stats.sources.libby, 88, 850, 300, theme.accent, true) + lines('finished reads borrowed through Libby', 1010, 62, 24));
-  let highlights = '';
-  highlights += text('LONGEST BOOK · PAGES', 88, 560, 28, theme.accent) + lines(stats.longest?.title ?? 'No page counts yet', 650, 48, 32, 88, 2)
-    + text(stats.longest ? `${number(stats.longest.pages)} pages` : 'Page metadata needed', 88, 790, 32, theme.muted);
-  highlights += text('FASTEST FINISH', 88, 940, 28, theme.accent) + lines(stats.fastest?.title ?? 'No start dates yet', 1030, 48, 32, 88, 2)
-    + text(stats.fastest ? `${number(stats.fastest.days)} days from start to finish` : 'Start and finish dates needed', 88, 1170, 32, theme.muted);
-  const busiest = stats.busiest ? new Date(stats.busiest[0] + '-01T00:00:00Z').toLocaleDateString('en', { month: 'long', timeZone: 'UTC' }) : 'Not recorded';
-  highlights += text('BUSIEST MONTH', 88, 1320, 28, theme.accent) + text(busiest, 88, 1430, 80, theme.ink, true)
-    + text(`${stats.busiest?.[1] ?? 0} books finished`, 88, 1520, 38, theme.muted);
-  add('highlights', 'Highlights', highlights);
-  // Paginate so every read, including re-reads, gets a place on the wall.
+
+  const hero = (value: string | number, label: string, y = 1000) => text(value, 76, y, String(value).length > 5 ? 180 : 280, theme.accent, true)
+    + lines(label, y + 120, 46, 36, 88, 2);
+
+  const smallMetrics = (metrics: { value: number; label: string }[], y: number) => metrics.filter((metric) => positive(metric.value))
+    .map((metric, i) => text(number(metric.value), 88 + i % 2 * 480, y + Math.floor(i / 2) * 250, 100, theme.accent, true)
+      + lines(metric.label, y + 75 + Math.floor(i / 2) * 250, 32, 22, 88 + i % 2 * 480, 2)).join('');
+
+  const formatLabels = { paper: 'Paper', ebook: 'Ebook', audio: 'Audiobook' };
+  const formats = Object.entries(stats.formats).filter(([, count]) => positive(count));
+  if (formats.length) add('formats', 'Reading formats', formats.length === 1 ? 'Your reading format.' : 'Your reading formats.', formats.map(([format, count], i) => {
+    const y = 760 + i * 310;
+    return text(bookCount(count), 88, y, 110, theme.accent, true) + text(formatLabels[format as keyof typeof formatLabels], 88, y + 82, 44)
+      + `<path d="M88 ${y + 120}h${Math.round(904 * count / stats.total)}" stroke="${theme.ink}" stroke-width="8" stroke-linecap="round"/>`;
+  }).join(''), formats.map(([format, count]) => `${bookCount(count)} in ${formatLabels[format as keyof typeof formatLabels]}`).join('. '));
+
+  const audioMinutes = stats.minutes + stats.runtimeMinutes;
+  if (positive(audioMinutes)) {
+    const hours = audioMinutes / 60;
+    const label = stats.runtimeKnown ? 'audio hours · estimated' : 'hours listened';
+    add('time', 'Listening time', 'Your listening time.', hero(number(hours), label), `${number(hours)} ${label}.`);
+  }
+  if (positive(stats.pages)) {
+    const label = stats.estimatedPages ? 'pages read · estimated' : 'pages read';
+    add('pages', 'Pages read', 'You read.', hero(number(stats.pages), label), `${number(stats.pages)} ${label}.`);
+  }
+
+  const genres = stats.genres.filter(([name, count]) => name.trim() && name.toLowerCase() !== 'uncategorised' && positive(count)).slice(0, 3);
+  if (genres.length) add('genres', 'Top genres', 'Your top genres.', genres.map(([name, count], i) => {
+    const y = 740 + i * 310;
+    return lines(name, y, i === 0 ? 74 : 52, i === 0 ? 20 : 28, 88, 2, i === 0) + text(bookCount(count), 88, y + 180, 38, theme.accent);
+  }).join(''), genres.map(([name, count]) => `${name}: ${bookCount(count)}`).join('. '));
+  const authors = stats.authors.filter(([name, count]) => name.trim() && positive(count)).slice(0, 3);
+  if (authors.length) add('authors', 'Top authors', 'Your top authors.', authors.map(([name, count], i) => {
+    const y = 740 + i * 310;
+    return lines(name, y, i === 0 ? 74 : 52, i === 0 ? 20 : 28, 88, 2, i === 0) + text(bookCount(count), 88, y + 180, 38, theme.accent);
+  }).join(''), authors.map(([name, count]) => `${name}: ${bookCount(count)}`).join('. '));
+
+  const discoveries = [
+    { value: stats.newAuthors.length, label: 'new authors' }, { value: stats.newGenres.length, label: 'new genres' },
+    { value: stats.uniqueAuthors, label: 'unique authors' }, { value: stats.uniqueGenres, label: 'genres read' },
+  ].filter((metric) => positive(metric.value));
+  if (discoveries.length) {
+    const [lead, ...rest] = discoveries;
+    add('discoveries', 'Discoveries', lead.label.startsWith('new ') ? 'New discoveries.' : 'Authors and genres.', hero(number(lead.value), lead.label, 920) + smallMetrics(rest, 1320), discoveries.map((metric) => `${number(metric.value)} ${metric.label}`).join('. '));
+  }
+  if (positive(stats.sources.libby)) add('library', 'Library books', 'From your library.', hero(stats.sources.libby, 'books finished through Libby'), `${bookCount(stats.sources.libby)} finished through Libby.`);
+
+  if (stats.longest && positive(stats.longest.pages)) add('longest', 'Longest book', 'Your longest book.', hero(number(stats.longest.pages), 'pages', 900)
+    + lines(stats.longest.title, 1350, 62, 28, 88, 3), `${stats.longest.title}: ${number(stats.longest.pages)} pages.`);
+  if (stats.fastest && positive(stats.fastest.days)) {
+    const days = stats.fastest.days;
+    const value = days >= 1 ? number(days) : days * 24 >= 1 ? number(days * 24) : days * 1440 >= 1 ? number(days * 1440) : '<1';
+    const unit = days >= 1 ? 'days' : days * 24 >= 1 ? 'hours' : 'minutes';
+    add('fastest', 'Fastest finish', 'Your fastest finish.', hero(value, unit, 900) + lines(stats.fastest.title, 1350, 62, 28, 88, 3), `${stats.fastest.title}: ${value} ${unit}.`);
+  }
+  if (stats.busiest && positive(stats.busiest[1])) {
+    const month = new Date(stats.busiest[0] + '-01T00:00:00Z').toLocaleDateString('en', { month: 'long', timeZone: 'UTC' });
+    add('busiest', 'Busiest month', 'Your busiest month.', lines(month, 920, 130, 12, 88, 2, true)
+      + text(bookCount(stats.busiest[1]), 88, 1260, 110, theme.accent, true), `${month}: ${bookCount(stats.busiest[1])} finished.`);
+  }
+
+  // Include every read, even without artwork, without labelling missing metadata on the card.
   for (let page = 0; page < Math.ceil(stats.finished.length / 12); page++) {
     const entries = stats.finished.slice(page * 12, (page + 1) * 12);
     let wall = '';
     entries.forEach((entry, i) => {
-      const x = 88 + (i % 3) * 310; const y = 470 + Math.floor(i / 3) * 300;
+      const x = 88 + i % 3 * 310; const y = 660 + Math.floor(i / 3) * 270;
       const cover = (entry.coverUrls ?? (entry.work.coverUrl ? [entry.work.coverUrl] : [])).map((url) => covers[url]).find(Boolean);
-      wall += `<rect x="${x}" y="${y}" width="264" height="230" rx="16" fill="${theme.line}"/>`;
-      if (cover && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(cover)) wall += `<image x="${x}" y="${y}" width="264" height="230" preserveAspectRatio="xMidYMid meet" href="${cover}"/>`;
-      else wall += text('BOOKEND', x + 32, y + 125, 24, theme.muted);
-      wall += lines(entry.work.title, y + 263, 22, 23, x, 1);
+      wall += `<rect x="${x}" y="${y}" width="264" height="210" rx="16" fill="${theme.background}"/>`;
+      if (cover && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(cover)) wall += `<image x="${x}" y="${y}" width="264" height="210" preserveAspectRatio="xMidYMid meet" href="${cover}"/>`;
+      else wall += lines(entry.work.title, y + 65, 24, 16, x + 18, 4);
+      wall += lines(entry.work.title, y + 245, 22, 23, x, 1);
     });
-    add(`covers-${page + 1}`, 'Books I read', wall);
+    add(`covers-${page + 1}`, 'Books I read', 'The books you finished.', wall, entries.map((entry) => entry.work.title).join('. '));
   }
+  add('total', 'Books finished', 'You finished.', hero(stats.total, stats.total === 1 ? 'book' : 'books')
+    + (showAbandoned && positive(stats.abandoned) ? text(`${stats.abandoned} abandoned`, 88, 1500, 36, theme.muted) : ''), `${bookCount(stats.total)} finished${showAbandoned && positive(stats.abandoned) ? `. ${stats.abandoned} abandoned` : ''}.`);
+
+  const summary = [
+    { value: audioMinutes / 60, label: stats.runtimeKnown ? 'audio hours · estimated' : 'hours listened' },
+    { value: stats.pages, label: stats.estimatedPages ? 'pages read · estimated' : 'pages read' },
+    { value: stats.uniqueAuthors, label: 'unique authors' }, { value: stats.newAuthors.length, label: 'new authors' },
+    { value: stats.newGenres.length, label: 'new genres' }, { value: stats.uniqueGenres, label: 'genres read' },
+  ].filter((metric) => positive(metric.value)).slice(0, 4);
+  add('summary', 'Recap summary', `${periodLabel(stats.period)} recap.`, hero(stats.total, stats.total === 1 ? 'book finished' : 'books finished', 850)
+    + smallMetrics(summary, 1280), [`${bookCount(stats.total)} finished`, ...summary.map((metric) => `${number(metric.value)} ${metric.label}`)].join('. '));
   return cards;
 }

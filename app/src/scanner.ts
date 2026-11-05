@@ -60,6 +60,7 @@ export async function startIsbnScan(
       stream.getTracks().forEach((t) => t.stop());
       video.srcObject = null;
     };
+
     const tick = async () => {
       if (stopped) return;
       try {

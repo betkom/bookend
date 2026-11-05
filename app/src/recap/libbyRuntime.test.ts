@@ -13,7 +13,9 @@ const catalogue = { id: '505740', type: { id: 'audiobook' }, formats: [
   { id: 'audiobook-overdrive', duration: '07:36:38' }, { id: 'audiobook-mp3', duration: '07:43:20' },
 ] };
 const fetcher = (data: unknown = catalogue, status = 200) => vi.fn(async () => new Response(JSON.stringify(data), { status })) as unknown as typeof fetch;
+
 const stats = async () => buildRecap(recapEntries(await loadRecapData(db)), { year: 2026 });
+
 async function existingRead() {
   await db.works.add({ id: 'w', title: 'The Adventures of Tom Sawyer', authors: ['Mark Twain'], genres: [] });
   await db.editions.add({ id: 'e', workId: 'w', format: 'audio', metadataCheckedAt: new Date().toISOString() });
@@ -72,10 +74,11 @@ it('replaces Open Library estimates with source runtime but preserves manual dur
   expect(fetchFn).not.toHaveBeenCalled(); expect((await db.editions.get('e'))?.durationMinutes).toBe(700);
 });
 
-it('does not turn missing runtime into zero listening hours', async () => {
+it('omits the listening card when runtime is unavailable', async () => {
   await existingRead(); await enrichEdition(db, 'e', { fetchFn: fetcher({}, 404) });
-  const svg = buildCards(await stats(), themes[0]).find((card) => card.id === 'time')!.svg;
-  expect(svg).toContain('Unknown'); expect(svg).toContain('audio hours unavailable');
+  const cards = buildCards(await stats(), themes[0]);
+  expect(cards.some((card) => card.id === 'time')).toBe(false);
+  expect(cards.map((card) => card.svg).join('')).not.toMatch(/Unknown|audio hours unavailable/);
 });
 
 it('discards a lookup if its import is removed while the request is in flight', async () => {

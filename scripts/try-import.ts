@@ -24,6 +24,7 @@ function fail(message: string): never {
 
 const args = process.argv.slice(2);
 const flag = (name: string) => args.includes(name);
+
 const option = (name: string) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;

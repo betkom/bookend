@@ -42,16 +42,19 @@ export function spotifyBooks(events: ReadingEvent[]): SpotifyBook[] {
 export function spotifyRead(data: RecapData, book: SpotifyBook) {
   return data.reads.find((read) => read.id === book.id || read.eventIds?.some((id) => book.events.some((event) => event.id === id)));
 }
+
 export function spotifyEdition(data: RecapData, book: SpotifyBook): Edition | undefined {
   const read = spotifyRead(data, book);
   return data.editions.find((edition) => read?.editionIds?.includes(edition.id))
     ?? data.editions.find((edition) => book.events.some((event) => event.editionId === edition.id))
     ?? data.editions.find((edition) => edition.id === book.editionId);
 }
+
 export function spotifyRuntime(data: RecapData, book: SpotifyBook) {
   const runtime = spotifyEdition(data, book)?.durationMinutes ?? book.events.find((event) => event.durationMinutes && event.durationMinutes > 0)?.durationMinutes;
   return runtime !== undefined && Number.isFinite(runtime) && runtime > 0 ? runtime : undefined;
 }
+
 export const spotifyFinished = (minutes: number, runtime?: number) => runtime !== undefined && Number.isFinite(runtime) && runtime > 0 && minutes > 0 && minutes >= runtime - 5;
 
 /** Derived so a runtime lookup or removal of an import immediately updates the recap. Explicit choices win. */

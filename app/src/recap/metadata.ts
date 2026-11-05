@@ -8,6 +8,7 @@ import { enrichLibbyRuntime } from './libbyRuntime';
 export const metadataTitle = (value: string) => value.normalize('NFKC').toLowerCase()
   .replace(/\((?:unabridged|abridged|audiobook|audio book)\)/g, '')
   .split(/[:—]/)[0].replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
 const authorKey = (value: string) => value.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 /** A title search must be unambiguous and agree with the author, when supplied. */
@@ -59,6 +60,7 @@ export async function applyBookMetadataMatch(db: BookendDB, editions: Edition[],
   if (!targets.length) throw new Error('This edition is no longer available.');
   for (const edition of targets) await chooseBookMetadata(db, edition.id, match.candidate, match.kind === 'isbn');
 }
+
 const validNumber = (value?: number) => value !== undefined && Number.isFinite(value) && value > 0;
 
 /** Network work happens outside Dexie transactions; save only missing fields from a current record. */

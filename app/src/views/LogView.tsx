@@ -16,8 +16,10 @@ const TYPE_LABEL: Record<ReadingEvent['type'], string> = {
 };
 
 const monthKey = (iso: string) => iso.slice(0, 7);
+
 const monthLabel = (key: string) =>
   new Date(key + '-01T12:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
 const dayLabel = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 export function LogView({ onGoImport }: { onGoImport: () => void }) {

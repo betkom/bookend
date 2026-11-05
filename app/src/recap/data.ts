@@ -69,20 +69,26 @@ export function recapEntries(data: RecapData): RecapEntry[] {
 }
 
 const positive = (value?: number): number | undefined => value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined;
+
 const nonnegative = (value?: number): number | undefined => value !== undefined && Number.isFinite(value) && value >= 0 ? value : undefined;
+
 const recordedGenres = (genres?: string[]) => (genres ?? []).map((genre) => genre.trim()).filter(Boolean);
+
 export function entryPages(entry: RecapEntry) {
   return positive(entry.pagesRead) ?? (entry.formats.some((f) => f === 'paper' || f === 'ebook')
     ? positive(entry.editions.find((e) => e.format !== 'audio' && positive(e.pages))?.pages) : undefined);
 }
+
 export function entryMinutes(entry: RecapEntry) {
   // A book's audio runtime isn't evidence of actual listening time.
   return nonnegative(entry.minutesListened);
 }
+
 export function entryRuntime(entry: RecapEntry) {
   if (!entry.formats.includes('audio')) return undefined;
   return positive(entry.durationMinutes) ?? positive(entry.editions.find((e) => e.format === 'audio' && positive(e.durationMinutes))?.durationMinutes);
 }
+
 /** Recorded read/import/work genres always win, even when absent from our mapping. */
 export function entryGenre(entry: RecapEntry) {
   const recorded = recordedGenres(entry.genres).length ? recordedGenres(entry.genres) : recordedGenres(entry.work.genres);
@@ -103,6 +109,7 @@ export function missingBookDetails(entry: RecapEntry): string[] {
 }
 
 export const needsBookMetadataReview = (entry: RecapEntry) => !entry.work.metadataReviewedAt && missingBookDetails(entry).length > 0;
+
 export function recapGenre(genres: string[]) {
   const normalized = genres.map((g) => g.toLowerCase().trim());
   for (const [genre, tags] of Object.entries(genreMap)) {
@@ -111,8 +118,10 @@ export function recapGenre(genres: string[]) {
   }
   return 'Uncategorised';
 }
+
 /** Names keep their spelling for display; case/spacing differences share an identity. */
 const identityKey = (value: string) => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+
 function entryAuthors(entry: RecapEntry) {
   const names = new Map<string, string>();
   for (const raw of entry.work.authors) {

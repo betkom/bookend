@@ -126,8 +126,8 @@ the imported title ID, preferring the OverDrive Listen format. This also backfil
 previously confirmed reads without re-importing. Source runtimes take priority over
 Open Library estimates; manual runtimes and recorded listening minutes are preserved.
 Only the title ID is sent, with no account credentials or loan history. Results are
-saved locally; refresh book details to retry unavailable titles. Unknown audio hours
-are shown as unavailable rather than a measured zero.
+saved locally; refresh book details to retry unavailable titles. Unknown or zero
+audio hours are omitted from recap cards.
 This applies to Libby and all other importers; zero recorded minutes is a known
 value, not missing data. Estimates are labelled on time cards. Open Library
 only has runtimes for some audio editions. Without an exact edition, a work-level
@@ -154,6 +154,17 @@ temporary network errors do not discard covers. ISBNs without catalogue artwork
 are not used to invent cover URLs. Books without available art use title
 placeholders and appear in **Review missing book details**. Two palettes ship initially;
 see [themes/README.md](themes/README.md) to add another.
+
+Recaps play as a sequence of portrait story cards, with a full-screen viewer,
+segmented progress, tap or swipe navigation, keyboard arrows, and optional
+playback. Playback starts only when selected and stops at the final card. Each
+card can be shared or downloaded as a 1080×1920 image. The sequence builds toward
+the finished-book count and ends with a compact, shareable summary.
+
+Only positive, available metrics appear. Missing listening time, pages, authors,
+or genres do not create empty cards; zero discoveries and unused formats are
+hidden. A period with no finished books shows an empty state instead of a story.
+Book covers fall back to titles so every finished read still appears.
 
 ## Contributing
 

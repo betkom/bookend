@@ -27,6 +27,7 @@ export function App() {
     function dismiss(event: PointerEvent) {
       if (event.target instanceof Node && !headerRef.current?.contains(event.target)) setMenuOpen(false);
     }
+
     function escape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return;
       setMenuOpen(false); menuButtonRef.current?.focus();

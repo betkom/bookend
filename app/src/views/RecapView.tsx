@@ -6,6 +6,7 @@ import { libbyLoans, type Loan } from '../loans';
 import { buildRecap, confirmLoan, inPeriod, loadRecapData, loanReadId, needsBookMetadataReview, periodLabel, recapEntries } from '../recap/data';
 import { buildCards, themes } from '../recap/cards';
 import { loadRecapFonts } from '../recap/fonts';
+import { RecapStory } from '../recap/RecapStory';
 import { cardPng, downloadFile, loadFirstCover, shareCard } from '../recap/export';
 import { enrichEdition, repairBookCover } from '../recap/metadata';
 import { clearBookMetadataCache } from '../openLibrary';
@@ -85,7 +86,7 @@ export function RecapView() {
   const theme = themes.find((t) => t.id === themeId)!;
   const cards = useMemo(() => buildCards(stats, theme, covers, showAbandoned, fontCss ?? ''), [stats, theme, covers, showAbandoned, fontCss]);
   const card = cards[Math.min(index, cards.length - 1)];
-  const currentIndex = Math.min(index, cards.length - 1);
+  useEffect(() => { setMessage(''); }, [card?.id]);
   const coverKey = JSON.stringify([...new Map(stats.finished.map((entry) => [JSON.stringify([entry.work.id, entry.coverUrls]), { workId: entry.work.id, urls: entry.coverUrls ?? [] }])).values()]);
   useEffect(() => {
     let cancelled = false;
@@ -110,32 +111,32 @@ export function RecapView() {
   }, [coverKey, metadataRetry]);
   useEffect(() => {
     let cancelled = false; setPrepared(undefined); setExportError('');
-    if (stats.total && fontCss !== undefined) cardPng(card).then((blob) => {
+    if (card && stats.total && fontCss !== undefined) cardPng(card).then((blob) => {
       if (!cancelled) setPrepared({ svg: card.svg, file: new File([blob], `bookend-${periodLabel(period).replace(/ /g, '-')}-${card.id}.png`, { type: 'image/png' }) });
     }).catch((e) => { if (!cancelled) setExportError(e instanceof Error ? e.message : 'Could not prepare PNG.'); });
     return () => { cancelled = true; };
-  }, [card.svg, stats.total, period, card.id, fontCss]);
+  }, [card?.svg, stats.total, period, card?.id, fontCss]);
   const loans = useMemo(() => data ? libbyLoans(data.events).filter((loan) => inPeriod(loan.returnedAt ?? loan.borrowedAt, period)
     || data.reads.some((r) => r.id === loanReadId(loan) && inPeriod(r.finishedAt, period))).reverse() : [], [data, period]);
   const years = [...new Set([new Date().getFullYear(), year, ...entries.map((e) => Number(e.finishedAt?.slice(0, 4))),
     ...(data?.events.map((e) => Number(e.timestamp.slice(0, 4))) ?? [])])].filter((n) => Number.isInteger(n) && n > 0).sort((a, b) => b - a);
-  const file = prepared?.svg === card.svg ? prepared.file : undefined;
+  const file = prepared && card && prepared.svg === card.svg ? prepared.file : undefined;
   const incompleteBooks = [...new Map(stats.finished.filter(needsBookMetadataReview)
     .map((entry) => [entry.work.id, entry])).values()];
   const matchedBooks = [...new Map(stats.finished.filter((entry) => entry.work.metadataReviewedAt)
     .map((entry) => [entry.work.id, entry])).values()];
   async function share() {
     if (!file) return;
-    setSharing(true); setError(''); setMessage('');
+    setSharing(true); setError(''); setExportError(''); setMessage('');
     try {
       const result = await shareCard(file);
       if (result !== 'cancelled') setMessage(result === 'shared' ? 'Card shared.' : 'Card downloaded. File sharing is unavailable here.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not share this card. Try downloading it.'); }
+    } catch (e) { setExportError(e instanceof Error ? e.message : 'Could not share this card. Try downloading it.'); }
     finally { setSharing(false); }
   }
   if (!data) return <p role="status">Loading your recap…</p>;
   return <section>
-    <div className="page-heading"><h2>Your recap</h2><p className="muted">Choose a period, review your books, and save your cards.</p></div>
+    <div className="page-heading"><h2>Your reading recap</h2><p className="muted">Your books, one story at a time.</p></div>
     <div className="recap-controls">
       <label>Year<Select value={year} onChange={(e) => { setYear(Number(e.target.value)); setIndex(0); setMessage(''); }}>{years.map((y) => <option key={y}>{y}</option>)}</Select></label>
       <label>Period<Select value={quarter} onChange={(e) => { setQuarter(Number(e.target.value)); setIndex(0); setMessage(''); }}><option value={0}>Full year</option>{[1, 2, 3, 4].map((q) => <option key={q} value={q}>Quarter {q}</option>)}</Select></label>
@@ -147,16 +148,18 @@ export function RecapView() {
       {loans.length > 0 && <a href="#libby-review" onClick={() => { const element = document.getElementById('libby-review'); if (element instanceof HTMLDetailsElement) element.open = true; }}>Review Libby books</a>}
     </div>}
     {error && <p className="notice error" role="alert">{error}</p>}
-    {stats.total > 0 ? <>
+    {card && stats.total > 0 ? <>
       <p className="recap-totals"><strong>{stats.total} <span>finished</span></strong><span>{periodLabel(period)}{stats.abandoned > 0 ? ` · ${stats.abandoned} abandoned` : ''}</span></p>
       <div className="recap-layout">
-        <div className="recap-preview"><img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(card.svg)}`} alt={`${periodLabel(period)}: ${card.title}`} /></div>
+        <RecapStory cards={cards} index={index} onChange={setIndex} label={periodLabel(period)} onShare={share}
+          onDownload={() => { if (file) { downloadFile(file); setMessage('Card downloaded.'); } }}
+          ready={!!file && (!card.id.startsWith('covers-') || !coverBusy)} sharing={sharing} message={message} exportError={exportError} />
         <div className="recap-actions">
           <label>Card<Select value={card.id} onChange={(e) => { setIndex(cards.findIndex((c) => c.id === e.target.value)); setMessage(''); }}>{cards.map((c, i) => <option key={c.id} value={c.id}>{i + 1}. {c.title}{c.id.startsWith('covers-') ? ` (${c.id.slice(7)})` : ''}</option>)}</Select></label>
-          <div className="card-pagination"><button aria-label="Previous recap card" disabled={currentIndex === 0} onClick={() => setIndex(Math.max(0, currentIndex - 1))}>Previous</button><span>{currentIndex + 1} / {cards.length}</span><button aria-label="Next recap card" disabled={currentIndex >= cards.length - 1} onClick={() => setIndex(currentIndex + 1)}>Next</button></div>
+
           <button className="primary" disabled={!file || sharing || (card.id.startsWith('covers-') && coverBusy)} onClick={share}>Share card</button>
           <button disabled={!file || (card.id.startsWith('covers-') && coverBusy)} onClick={() => { if (file) { downloadFile(file); setMessage('Card downloaded.'); } }}>Download PNG</button>
-          <p className="muted small">Save each card as an image to share.</p>
+          <p className="muted small">Tap the card edges or swipe to move through. Your final card is a summary you can share.</p>
           {coverBusy && <p role="status" className="small muted">Preparing cover images…</p>}
           {!coverBusy && stats.finished.some((entry) => !entry.coverUrls?.some((url) => covers[url])) && <p className="small muted">Some covers are missing. Book titles appear instead.</p>}
           {exportError && <p role="alert" className="notice error">{exportError}</p>}
