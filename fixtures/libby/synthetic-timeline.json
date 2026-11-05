@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "timeline": [
+    {
+      "cover": {
+        "contentType": "image/jpeg",
+        "url": "https://example.org/c3.jpg",
+        "title": "Example Weekly",
+        "color": "#000000",
+        "format": "magazine"
+      },
+      "title": {
+        "text": "Example Weekly",
+        "url": "https://example.org/t/3",
+        "titleId": "1003"
+      },
+      "author": "Various",
+      "publisher": "Example Mags",
+      "isbn": "",
+      "timestamp": 1713000000000,
+      "activity": "Borrowed",
+      "details": " 21 days ",
+      "library": {
+        "text": "Sample Public Library",
+        "url": "https://example.org/library/samplelib",
+        "key": "samplelib"
+      }
+    },
+    {
+      "cover": {
+        "contentType": "image/jpeg",
+        "url": "https://example.org/c2.jpg",
+        "title": "Moby-Dick (Unabridged)",
+        "color": "#224466",
+        "format": "audiobook"
+      },
+      "title": {
+        "text": "Moby-Dick (Unabridged)",
+        "url": "https://example.org/t/2",
+        "titleId": "1002"
+      },
+      "author": "Herman Melville",
+      "publisher": "Example Audio",
+      "isbn": "9781400100231",
+      "timestamp": 1709838000000,
+      "activity": "Placed on hold",
+      "details": "",
+      "library": {
+        "text": "Sample Public Library",
+        "url": "https://example.org/library/samplelib",
+        "key": "samplelib"
+      }
+    },
+    {
+      "cover": {
+        "contentType": "image/jpeg",
+        "url": "https://example.org/c1.jpg",
+        "title": "Pride and Prejudice",
+        "color": "#aa3322",
+        "format": "ebook"
+      },
+      "title": {
+        "text": "Pride and Prejudice",
+        "url": "https://example.org/t/1",
+        "titleId": "1001"
+      },
+      "author": "Jane Austen",
+      "publisher": "Example House",
+      "isbn": "9780141439518",
+      "timestamp": 1706090400000,
+      "activity": "Returned",
+      "details": " 3 days  early",
+      "library": {
+        "text": "Sample Public Library",
+        "url": "https://example.org/library/samplelib",
+        "key": "samplelib"
+      }
+    },
+    {
+      "cover": {
+        "contentType": "image/jpeg",
+        "url": "https://example.org/c1.jpg",
+        "title": "Pride and Prejudice",
+        "color": "#aa3322",
+        "format": "ebook"
+      },
+      "title": {
+        "text": "Pride and Prejudice",
+        "url": "https://example.org/t/1",
+        "titleId": "1001"
+      },
+      "author": "Jane Austen",
+      "publisher": "Example House",
+      "isbn": "9780141439518",
+      "timestamp": 1704708000000,
+      "activity": "Borrowed",
+      "details": " 21 days ",
+      "library": {
+        "text": "Sample Public Library",
+        "url": "https://example.org/library/samplelib",
+        "key": "samplelib"
+      }
+    }
+  ]
+}

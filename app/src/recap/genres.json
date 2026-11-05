@@ -1,0 +1,18 @@
+{
+  "Fantasy": ["fantasy", "fantasy fiction"],
+  "Science fiction": ["science fiction", "sci-fi"],
+  "Mystery & crime": ["mystery", "mystery fiction", "detective and mystery stories", "crime"],
+  "Thriller": ["thriller", "thrillers", "suspense", "suspense fiction"],
+  "Romance": ["romance", "romance fiction", "love stories"],
+  "Horror": ["horror", "horror fiction", "horror tales"],
+  "Memoir & biography": ["memoir", "memoirs", "biography", "autobiography", "biography & autobiography"],
+  "History": ["history", "historical nonfiction"],
+  "Science & nature": ["science", "nature", "natural history"],
+  "Self-development": ["self-help", "personal development", "psychology"],
+  "Poetry": ["poetry", "poems"],
+  "Comics & graphic novels": ["comics", "graphic novels", "manga"],
+  "Young adult": ["young adult", "young adult fiction"],
+  "Children’s": ["children's fiction", "juvenile fiction", "children's literature"],
+  "Essays": ["essays"],
+  "Literary fiction": ["literary fiction", "classics", "fiction"]
+}

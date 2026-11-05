@@ -1,0 +1,10 @@
+{
+  "id": "paper",
+  "name": "Playful",
+  "background": "#f6f2ee",
+  "surface": "#ffffff",
+  "ink": "#111111",
+  "accent": "#ff2e95",
+  "muted": "#414040",
+  "line": "#e8e5e0"
+}

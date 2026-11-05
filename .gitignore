@@ -1,0 +1,26 @@
+node_modules
+dist
+dev-dist
+.DS_Store
+*.log
+.vite
+# Never commit un-anonymised personal exports. Put them here while working on an importer.
+private-exports/
+
+# Local credentials, personal backups, and tool state
+.env
+.env.*
+!.env.example
+!.env.template
+.codex/
+.agents/
+.aws/
+.ssh/
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+bookend-backup*.json
+Streaming_History_*.json

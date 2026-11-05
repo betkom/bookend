@@ -1,0 +1,10 @@
+{
+  "id": "midnight",
+  "name": "Ink",
+  "background": "#000000",
+  "surface": "#111111",
+  "ink": "#ffffff",
+  "accent": "#ff2e95",
+  "muted": "#c3c1bf",
+  "line": "#414040"
+}

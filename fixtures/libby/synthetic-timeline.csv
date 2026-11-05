@@ -1,0 +1,9 @@
+cover,title,author,publisher,isbn,timestamp,activity,details,library
+https://example.org/c2.jpg,Moby-Dick (Unabridged),Herman Melville,Example Audio,9781400100231,"April 28, 2024 19:00",Returned, 2 days  early,Sample Library
+https://example.org/c2.jpg,Moby-Dick (Unabridged),Herman Melville,Example Audio,9781400100231,"April 20, 2024 19:00",Renewed, 14 days ,Sample Library
+https://example.org/c2.jpg,Moby-Dick (Unabridged),Herman Melville,Example Audio,9781400100231,"April 07, 2024 19:00",Borrowed, 14 days ,Sample Library
+https://example.org/c2.jpg,Moby-Dick (Unabridged),Herman Melville,Example Audio,9781400100231,"March 07, 2024 19:00",Placed on hold,,Sample Library
+https://example.org/c4.jpg,Middlemarch,George Eliot,Example House,9780141439549,"February 20, 2024 19:00",Hold expired,,Sample Library
+https://example.org/c1.jpg,Pride and Prejudice,Jane Austen,Example House,9780141439518,"January 29, 2024 10:00",Returned,on due date,Sample Library
+https://example.org/c1.jpg,"Pride and Prejudice",Jane Austen,Example House,9780141439518,"January 08, 2024 10:00",Borrowed, 21 days ,Sample Library
+https://example.org/c3.jpg,No Isbn Book,Some Author,Example House,"","February 01, 2024 10:00",Borrowed, 21 days ,Sample Library
