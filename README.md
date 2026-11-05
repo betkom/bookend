@@ -14,7 +14,7 @@ yearly recaps.
 | Phase | Scope | State |
 | --- | --- | --- |
 | 1 | App shell, storage, importer contract, Libby importer, paper books (scan/search), backup | ✅ in progress |
-| 2 | Matching to Open Library works, cross-format merge, review inbox | planned |
+| 2 | Matching to Open Library works, cross-format merge, review inbox | Partially implemented: ISBN/title matching and Libby/Spotify review are available; full cross-format merging and a unified matching/merge inbox remain planned |
 | 3 | Quarterly/yearly recap cards (1080×1920) and sharing | ✅ implemented |
 | 4 | Audible importer (audible-cli export) | planned |
 | 5 | Spotify importer (extended streaming history) | ✅ importer, runtime-based completion, and review implemented |
