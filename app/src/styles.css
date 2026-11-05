@@ -221,3 +221,43 @@ main { min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   button:active:not(:disabled), .button:active { transform: none; }
 }
+
+/* Story controls are outside the exported artwork. The native dialog supplies focus containment. */
+.story-preview { aspect-ratio: auto; overflow: visible; background: transparent; border-radius: 0; display: grid; gap: 0.8rem; }
+.story-progress { display: flex; gap: 4px; align-items: center; min-height: 12px; }
+.story-progress > span { flex: 1; position: relative; height: 4px; overflow: hidden; border-radius: 99px; background: var(--line); }
+.story-progress .complete { background: var(--ink); }
+.story-progress .current { background: var(--accent); }
+.story-progress .current.playing { background: var(--line); }
+.story-progress .playing::after { content: ''; position: absolute; inset: 0; background: var(--accent); transform-origin: left; animation: story-progress 7s linear both; }
+.story-stage { position: relative; aspect-ratio: 9 / 16; width: 100%; min-width: 0; overflow: hidden; border-radius: 20px; touch-action: pan-y pinch-zoom; }
+.story-stage .story-art { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-select: none; }
+.story-tap { position: absolute; inset-block: 0; width: 35%; min-height: 0; border: 0; border-radius: 0; background: transparent; padding: 0; opacity: 0; }
+.story-tap.previous { left: 0; }
+.story-tap.next { right: 0; width: 65%; }
+.story-tap:focus-visible { opacity: 1; outline-offset: -5px; background: transparent; }
+.story-tap:active:not(:disabled) { transform: none; }
+.story-tap:disabled { pointer-events: none; }
+.story-launch { gap: 0.6rem; width: 100%; }
+.story-launch svg, .story-export-actions svg, .story-close svg { width: 20px; height: 20px; flex-shrink: 0; }
+body:has(.recap-story-dialog[open]) { overflow: hidden; }
+.recap-story-dialog { position: fixed; inset: 0; margin: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; padding: max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); border: 0; background: var(--paper); color: var(--ink); }
+.recap-story-dialog::backdrop { background: var(--paper); }
+.story-shell { max-width: 480px; height: 100%; margin: auto; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 0.5rem; }
+.story-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 0.9rem; }
+.story-close { padding: 0; width: 44px; min-height: 44px; }
+.story-screen { min-height: 0; display: flex; justify-content: center; align-items: center; }
+.story-screen .story-stage { width: auto; height: 100%; max-width: 100%; }
+.story-footer { display: grid; gap: 0.5rem; }
+.story-footer p { margin: 0; text-align: center; }
+.story-export-actions { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem; }
+.story-export-actions button { gap: 0.35rem; padding: 0.65rem 0.75rem; font-size: 0.875rem; }
+@keyframes story-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 640px) {
+  .story-preview { width: min(100%, 340px); }
+  .recap-layout { padding: 1rem; }
+  .story-preview .story-stage { width: min(100%, 32.625svh); justify-self: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-progress .playing::after { animation: none; transform: scaleX(1); }
+}

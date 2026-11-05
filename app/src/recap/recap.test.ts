@@ -134,7 +134,7 @@ it('renders every cover across pages, escapes user text and exports both themes 
   const stats = buildRecap(await entries(), { year: 2026 });
   for (const theme of themes) {
     const cards = buildCards(stats, theme);
-    expect(cards).toHaveLength(10);
+    expect(cards.map((card) => card.id)).toEqual(['formats', 'busiest', 'covers-1', 'covers-2', 'total', 'summary']);
     expect(cards.filter((c) => c.id.startsWith('covers-'))).toHaveLength(2);
     expect(cards.every((c) => c.svg.includes('width="1080" height="1920"'))).toBe(true);
     expect(cards.every((c) => !c.svg.includes('undefined') && !c.svg.includes('NaN'))).toBe(true);

@@ -50,7 +50,7 @@ it('exports authors and discoveries in both palettes without the narrator card o
   const stats = buildRecap([read('one', ['Author <One> & Co'], ['Fantasy'])], { year: 2026 });
   for (const theme of themes) {
     const cards = buildCards(stats, theme);
-    expect(cards).toHaveLength(9);
+    expect(cards.map((card) => card.id)).toEqual(['formats', 'genres', 'authors', 'discoveries', 'busiest', 'covers-1', 'total', 'summary']);
     expect(cards.some((card) => card.id === 'narrators')).toBe(false);
     expect(cards.find((card) => card.id === 'authors')?.svg).toContain('Author &lt;One&gt; &amp; Co');
     const discovery = cards.find((card) => card.id === 'discoveries')!;

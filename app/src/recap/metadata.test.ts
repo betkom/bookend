@@ -27,7 +27,7 @@ it('backfills existing books with covers and labelled page estimates and persist
   expect(recap.genres).toEqual([['Fantasy', 1]]);
   const cards = buildCards(recap, themes[0], { 'https://covers.openlibrary.org/b/id/42-M.jpg': 'data:image/jpeg;base64,YQ==' });
   expect(cards.find((c) => c.id === 'covers-1')?.svg).toContain('<image');
-  expect(cards.find((c) => c.id === 'time')?.svg).toContain('pages read · estimated');
+  expect(cards.find((c) => c.id === 'pages')?.svg).toContain('pages read · estimated');
   await enrichEdition(db, edition.id, { fetchFn });
   expect(fetchFn).toHaveBeenCalledTimes(1);
 });

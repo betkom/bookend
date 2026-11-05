@@ -20,6 +20,13 @@ illustrations are not part of the product screens.
   Recaps offer Playful and an optional monochrome Ink palette with the same accent.
 - Recap SVGs embed the local font files so previews and 1080×1920 PNG exports
   match offline. Cards have no calculation notes or footer wordmark.
+- Recaps use portrait story cards with a dominant statistic, segmented progress,
+  tap/swipe navigation, keyboard arrows, and an accessible full-screen dialog.
+  Playback is optional, pauses while holding a card, and ends on the summary.
+  Respect reduced-motion preferences and keep navigation/share controls visible.
+- Build the story from positive, available metrics only. Omit empty cards and
+  zero values, preserve every finished book in the cover wall, and finish with
+  a summary containing up to five positive statistics.
 
 Shared UI tokens live in src/styles.css; font definitions in src/fonts.css.
 Recap colours live in themes/paper and themes/midnight, and card layouts in
