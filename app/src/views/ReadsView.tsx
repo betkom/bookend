@@ -3,8 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { SourceId } from '@importers/types';
 import { db } from '../db';
 import { Select } from '../components/Select';
+import { ReadStatusReview } from '../components/ReadStatusReview';
 import { entryPages, entryRuntime } from '../recap/data';
-import { filterReadingRecords, formatLabels, loadReadsData, readingRecords, readingStatusLabels, sourceLabels, type ReadingRecord, type ReadingStatus } from '../reads';
+import { filterReadingRecords, formatLabels, loadReadsData, readingRecords, readingYear, readingStatusLabels, sourceLabels, type ReadingRecord, type ReadingStatus, type ReadingYear } from '../reads';
 
 const day = (value: string) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const minutes = (value: number) => `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)} min`;
@@ -37,6 +38,22 @@ function BookDetails({ item }: { item: ReadingRecord }) {
   </dl>;
 }
 
+function ReviewSavedNotice({ readId, title, onReset }: { readId: string; title: string; onReset: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function undo() {
+    setBusy(true); setError('');
+    try { await db.reads.delete(readId); onReset(); }
+    catch (error) { setError(error instanceof Error ? error.message : 'Could not undo the review.'); }
+    finally { setBusy(false); }
+  }
+  return <div className="notice ok">
+    <p role="status">Saved review for {title}.</p>
+    <button className="link" disabled={busy} onClick={() => { void undo(); }}>Undo review</button>
+    {error && <p role="alert">{error}</p>}
+  </div>;
+}
+
 export function ReadsView({ onGoImport, onAddBook }: { onGoImport: () => void; onAddBook: () => void }) {
   const [error, setError] = useState('');
   const data = useLiveQuery(async () => {
@@ -46,19 +63,28 @@ export function ReadsView({ onGoImport, onAddBook }: { onGoImport: () => void; o
   const records = useMemo(() => data ? readingRecords(data) : [], [data]);
   const [source, setSource] = useState<SourceId | 'all'>('all');
   const [status, setStatus] = useState<ReadingStatus | 'all'>('all');
+  const [year, setYear] = useState<ReadingYear>('all');
   const [query, setQuery] = useState('');
-  const filtered = filterReadingRecords(records, query, source, status);
+  const [reviewed, setReviewed] = useState<{ readId: string; title: string }>();
+  const reviewNotice = reviewed && <ReviewSavedNotice key={reviewed.readId} {...reviewed} onReset={() => setReviewed(undefined)} />;
+  const filtered = filterReadingRecords(records, query, source, status, year);
   if (error) return <p role="alert" className="notice error">{error}</p>;
   if (!data) return <p role="status">Loading your reads…</p>;
-  if (!records.length) return <section className="empty">
+  if (!records.length) return <section>
+    {reviewNotice}
+    <div className="empty">
     <h2>{data.events.length || data.batches.length ? 'No reads yet' : 'Your reading starts here'}</h2>
     <p>Import your history or add a book. Returned Libby loans appear here once you confirm a read in Recap.</p>
     <div className="read-empty-actions"><button className="primary" onClick={onGoImport}>Import a file</button><button onClick={onAddBook}>Add book</button></div>
+    </div>
   </section>;
   // Keep the selected source available when an import is undone so the user can reset it.
   const sources = [...new Set([...records.flatMap((item) => item.sources), ...(source === 'all' ? [] : [source])])];
+  const years = [...new Set([...records.flatMap((item) => { const year = readingYear(item); return year === undefined ? [] : [year]; }),
+    ...(typeof year === 'number' ? [year] : [])])].sort((a, b) => b - a);
   return <section>
     <div className="page-heading"><h2>Reads</h2></div>
+    {reviewNotice}
     <div className="filters read-filters">
       <input aria-label="Search books" type="search" placeholder="Filter by title or author" value={query} onChange={(event) => setQuery(event.target.value)} />
       <Select aria-label="Source" value={source} onChange={(event) => setSource(event.target.value as SourceId | 'all')}>
@@ -66,6 +92,10 @@ export function ReadsView({ onGoImport, onAddBook }: { onGoImport: () => void; o
       </Select>
       <Select aria-label="Reading status" value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus | 'all')}>
         <option value="all">All statuses</option>{Object.entries(readingStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </Select>
+      <Select aria-label="Year" value={year} onChange={(event) => setYear(event.target.value === 'all' || event.target.value === 'undated' ? event.target.value : Number(event.target.value))}>
+        <option value="all">All years</option>{years.map((year) => <option key={year} value={year}>{year}</option>)}
+        <option value="undated">Undated</option>
       </Select>
     </div>
     <p className="muted small" role="status">{filtered.length} {filtered.length === 1 ? 'record' : 'records'}</p>
@@ -88,6 +118,7 @@ export function ReadsView({ onGoImport, onAddBook }: { onGoImport: () => void; o
           <span className="read-disclosure" aria-hidden="true">⌄</span>
         </summary>
         <BookDetails item={item} />
+        <ReadStatusReview item={item} data={data} onSaved={(readId, title) => setReviewed({ readId, title })} onReset={() => setReviewed(undefined)} />
       </details>
     </li>)}</ul>
   </section>;

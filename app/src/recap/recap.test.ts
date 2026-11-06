@@ -4,8 +4,9 @@ import { BookendDB, type Read } from '../db';
 import { addPaperBook, addPaperDate, undoBatch } from '../importService';
 import { exportBackup, restoreBackup } from '../backup';
 import { libbyLoans } from '../loans';
-import { buildRecap, confirmLoan, inPeriod, loadRecapData, missingBookDetails, recapEntries, recapGenre } from './data';
+import { buildRecap, confirmLoan, inPeriod, loadRecapData, missingBookDetails, recapEntries, recapGenre, type RecapEntry } from './data';
 import { buildCards, escapeXml, themes } from './cards';
+import { prepareSpotifyBooks, spotifyBooks } from './spotify';
 
 let db: BookendDB;
 beforeEach(() => { db = new BookendDB(`recap-${Math.random()}`); });
@@ -78,7 +79,7 @@ describe('Libby confirmation', () => {
     let stats = buildRecap(await entries(), { year: 2026, quarter: 2 });
     expect(stats.total).toBe(1); expect(stats.sources.libby).toBe(1);
     expect(stats.minutes).toBe(0); expect(stats.minutesKnown).toBe(0);
-    expect(stats.fastest).toBeUndefined(); // A borrow date is not a confirmed start date.
+    expect(stats.fastest).toEqual({ title: 'Library book', days: 90 }); // Audiobooks can fall back to this loan’s borrow date.
     await confirmLoan(db, loan, 'abandoned', '2026-04-02');
     expect(await db.reads.count()).toBe(1);
     expect(await db.editions.count()).toBe(1);
@@ -213,4 +214,93 @@ it('lists missing metadata rather than asking for details already recorded on a 
   expect(missingBookDetails((await entries())[0])).toEqual([]);
   await db.reads.update(read.id, { minutesListened: undefined });
   expect(missingBookDetails((await entries())[0])).toEqual(['audio runtime']);
+});
+
+
+it('compares confirmed Libby audiobooks and paper books using the same start-to-finish interval', async () => {
+  await addPaperBook(db, { title: 'Paper book', authors: [], startedAt: '2026-01-01', finishedAt: '2026-01-10' });
+  const loan = await libbyLoan();
+  await confirmLoan(db, loan, 'finished', '2026-01-11', '2026-01-10');
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toEqual({ title: 'Library book', days: 1 });
+  await confirmLoan(db, loan, 'finished', '2026-01-14', '2026-01-01');
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toEqual({ title: 'Paper book', days: 9 });
+  await confirmLoan(db, loan, 'finished', '2026-01-02');
+  // With no entered start date, the audiobook uses its loan’s borrow date, not its runtime.
+  const edition = (await db.editions.toArray()).find((edition) => edition.format === 'audio')!;
+  await db.editions.update(edition.id, { durationMinutes: 30 });
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toEqual({ title: 'Library book', days: 1 });
+});
+
+it('includes automatically finished Spotify audiobooks using listening dates, including a same-session finish', async () => {
+  await addPaperBook(db, { title: 'Paper book', authors: [], startedAt: '2026-01-01', finishedAt: '2026-01-10' });
+  const base = { batchId: 'spotify', source: 'spotify' as const, rawTitle: 'Spotify book', rawAuthor: '',
+    format: 'audio' as const, sourceItemId: 'audio-1', type: 'listened' as const };
+  await db.events.bulkAdd([
+    { ...base, id: 'play-1', timestamp: '2026-01-01T12:00:00.000Z', value: 50 },
+    { ...base, id: 'play-2', timestamp: '2026-01-02T12:00:00.000Z', value: 50 },
+  ]);
+  await prepareSpotifyBooks(db);
+  const book = spotifyBooks(await db.events.toArray())[0];
+  expect(buildRecap(await entries(), { year: 2026 }).fastest?.title).toBe('Paper book');
+  await db.editions.update(book.editionId, { durationMinutes: 105 });
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toEqual({ title: 'Spotify book', days: 1 });
+  await db.events.delete('play-2');
+  await db.editions.update(book.editionId, { durationMinutes: 55 });
+  const stats = buildRecap(await entries(), { year: 2026 });
+  expect(stats.fastest).toEqual({ title: 'Spotify book', days: 0 });
+  expect(buildCards(stats, themes[0]).find((card) => card.id === 'fastest')?.description).toBe('Spotify book: finished the same day.');
+});
+
+
+it('uses the specific Libby audiobook loan as a start fallback, while entered dates win', async () => {
+  const firstLoan = await libbyLoan();
+  expect(await entries()).toHaveLength(0); // A borrow date never confirms completion.
+  await confirmLoan(db, firstLoan, 'finished', '2026-01-14');
+  const [first] = await entries();
+  expect(first.libbyBorrowedAt).toBe('2026-01-01T12:00:00Z');
+  expect(first.startedAt).toBeUndefined(); // The fallback doesn't overwrite the reader's dates.
+  await db.events.bulkAdd([
+    { id: 'borrow-2', batchId: 'batch', source: 'libby', rawTitle: 'Library book', rawAuthor: 'Author', type: 'borrowed', timestamp: '2026-01-20T12:00:00Z', format: 'audio', sourceItemId: '1' },
+    { id: 'return-2', batchId: 'batch', source: 'libby', rawTitle: 'Library book', rawAuthor: 'Author', type: 'returned', timestamp: '2026-02-01T12:00:00Z', format: 'audio', sourceItemId: '1' },
+  ]);
+  const secondLoan = libbyLoans(await db.events.toArray()).find((loan) => loan.eventIds.includes('borrow-2'))!;
+  await confirmLoan(db, secondLoan, 'finished', '2026-01-25');
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toEqual({ title: 'Library book', days: 5 });
+  await confirmLoan(db, secondLoan, 'finished', '2026-01-25', '2026-01-24');
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toEqual({ title: 'Library book', days: 1 });
+});
+
+it('does not use borrow dates for Libby ebooks or loans with no known borrow', async () => {
+  const loan = await libbyLoan();
+  await confirmLoan(db, { ...loan, format: 'ebook' }, 'finished', '2026-01-14');
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toBeUndefined();
+  await db.reads.clear();
+  await db.events.delete('borrow');
+  const returnOnly = libbyLoans(await db.events.toArray())[0];
+  await confirmLoan(db, returnOnly, 'finished', '2026-01-14');
+  expect(buildRecap(await entries(), { year: 2026 }).fastest).toBeUndefined();
+});
+
+it.each([0, 29.99, 30, 60, undefined])('uses the 30-minute listening cutoff for same-day audio finishes: %s', (minutesListened) => {
+  const audio: RecapEntry = { id: 'audio', workId: 'audio', status: 'finished', formats: ['audio'], sources: ['libby'],
+    work: { id: 'audio', title: 'Audio book', authors: [], genres: [] }, editions: [],
+    startedAt: '2026-01-02T08:00:00Z', finishedAt: '2026-01-02T12:00:00Z', minutesListened, durationMinutes: 20 };
+  const paper: RecapEntry = { ...audio, id: 'paper', workId: 'paper', formats: ['paper'], sources: ['paper'],
+    work: { ...audio.work, id: 'paper', title: 'Paper book' }, startedAt: '2026-01-01T12:00:00Z', minutesListened: undefined };
+  const stats = buildRecap([paper, audio], { year: 2026 });
+  expect(stats.fastest?.title).toBe(minutesListened !== undefined && minutesListened < 30 ? 'Paper book' : 'Audio book');
+  expect(stats.total).toBe(2);
+  // Crossing UTC midnight is not a same-day finish, even with a short listening total.
+  const overnight = { ...audio, startedAt: '2026-01-01T23:50:00Z', finishedAt: '2026-01-02T00:10:00Z' };
+  expect(buildRecap([paper, overnight], { year: 2026 }).fastest?.title).toBe('Audio book');
+});
+
+it('omits the fastest card when every candidate is a same-day audiobook under 30 minutes', () => {
+  const audio: RecapEntry = { id: 'audio', workId: 'audio', status: 'finished', formats: ['audio'], sources: ['spotify'],
+    work: { id: 'audio', title: 'Audio book', authors: [], genres: [] }, editions: [],
+    startedAt: '2026-01-02T12:00:00Z', finishedAt: '2026-01-02T12:00:00Z', minutesListened: 29 };
+  const stats = buildRecap([audio], { year: 2026 });
+  expect(stats.fastest).toBeUndefined();
+  expect(buildCards(stats, themes[0]).some((card) => card.id === 'fastest')).toBe(false);
+  expect(stats.total).toBe(1);
 });

@@ -56,7 +56,7 @@ export function RecapView() {
   const period = useMemo(() => ({ year, quarter: quarter || undefined }), [year, quarter]);
   const stats = useMemo(() => buildRecap(entries, period), [entries, period]);
   const spotify = useMemo(() => data ? spotifyBooks(data.events).filter((book) => inPeriod(book.lastPlayedAt, period)
-    || inPeriod(spotifyRead(data, book)?.finishedAt, period)) : [], [data, period]);
+    || inPeriod(spotifyRead(data, book)?.finishedAt ?? spotifyRead(data, book)?.startedAt, period)) : [], [data, period]);
   const spotifyEventKey = JSON.stringify(data?.events.filter((event) => event.source === 'spotify').map((event) => event.id).sort() ?? []);
   useEffect(() => { void prepareSpotifyBooks(db).catch((error) => setError(error instanceof Error ? error.message : 'Could not prepare Spotify books.')); }, [spotifyEventKey]);
   const editionKey = JSON.stringify([...new Set([...stats.finished.flatMap((entry) => entry.editions.map((edition) => edition.id)),
@@ -117,8 +117,8 @@ export function RecapView() {
     return () => { cancelled = true; };
   }, [card?.svg, stats.total, period, card?.id, fontCss]);
   const loans = useMemo(() => data ? libbyLoans(data.events).filter((loan) => inPeriod(loan.returnedAt ?? loan.borrowedAt, period)
-    || data.reads.some((r) => r.id === loanReadId(loan) && inPeriod(r.finishedAt, period))).reverse() : [], [data, period]);
-  const years = [...new Set([new Date().getFullYear(), year, ...entries.map((e) => Number(e.finishedAt?.slice(0, 4))),
+    || data.reads.some((r) => r.id === loanReadId(loan) && inPeriod(r.finishedAt ?? r.startedAt, period))).reverse() : [], [data, period]);
+  const years = [...new Set([new Date().getFullYear(), year, ...entries.map((e) => Number((e.finishedAt ?? e.startedAt)?.slice(0, 4))),
     ...(data?.events.map((e) => Number(e.timestamp.slice(0, 4))) ?? [])])].filter((n) => Number.isInteger(n) && n > 0).sort((a, b) => b - a);
   const file = prepared && card && prepared.svg === card.svg ? prepared.file : undefined;
   const incompleteBooks = [...new Map(stats.finished.filter(needsBookMetadataReview)

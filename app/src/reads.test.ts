@@ -179,3 +179,17 @@ it('tags a legacy Libby review identified by its loan ID even without evidence l
   await db.reads.put({ ...read, eventIds: undefined });
   expect((await records())[0].sources).toContain('libby');
 });
+
+it('filters by year together with search, source and status, with a separate undated choice', async () => {
+  await addPaperBook(db, { title: 'Older book', authors: [], finishedAt: '2025-01-01' });
+  await addPaperBook(db, { title: 'Current book', authors: ['Writer'], startedAt: '2026-01-01' });
+  await addPaperBook(db, { title: 'Waiting book', authors: [] });
+  await addListening();
+  await addLoan();
+  const list = await records();
+  expect(filterReadingRecords(list, '', 'all', 'all', 2025).map((item) => item.work.title)).toEqual(['Older book']);
+  expect(filterReadingRecords(list, '', 'all', 'all', 2026)).toHaveLength(3);
+  expect(filterReadingRecords(list, 'writer', 'paper', 'in-progress', 2026).map((item) => item.work.title)).toEqual(['Current book']);
+  expect(filterReadingRecords(list, '', 'all', 'all', 'undated').map((item) => item.work.title)).toEqual(['Waiting book']);
+  expect(filterReadingRecords(list, '', 'all', 'all', 2024)).toEqual([]);
+});

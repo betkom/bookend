@@ -5,6 +5,9 @@ import { loadRecapData, recapEntries, loanReadId, type RecapData, type RecapEntr
 import { spotifyBooks, spotifyEdition, spotifyFinished, spotifyRead, spotifyRuntime } from './recap/spotify';
 import { isCoverUrl, missingCover } from './recap/coverUrls';
 
+export type ReadingYear = number | 'all' | 'undated';
+export const readingYear = (item: ReadingRecord) => item.activityAt ? new Date(item.activityAt).getUTCFullYear() : undefined;
+
 export type ReadingStatus = 'not-started' | 'in-progress' | 'finished' | 'abandoned';
 export const readingStatusLabels: Record<ReadingStatus, string> = {
   'not-started': 'Not started', 'in-progress': 'In progress', finished: 'Finished', abandoned: 'Abandoned',
@@ -27,6 +30,8 @@ export interface ReadingRecord {
   minutesListened?: number;
   durationMinutes?: number;
   loan?: Loan;
+  eventIds: string[];
+  batchId?: string;
 }
 export interface ReadsData extends RecapData { batches: ImportBatch[] }
 export async function loadReadsData(db: BookendDB): Promise<ReadsData> {
@@ -42,7 +47,7 @@ function record(data: ReadsData, id: string, events: ReadingEvent[], edition?: E
   const coverUrls = [...new Set([...events.filter((event) => event.source === 'libby').map((event) => event.extra?.coverUrl), work.coverUrl]
     .filter(isCoverUrl).filter((url) => !missingCover(url, work.missingCoverUrls)))];
   const genres = [...new Set(events.flatMap((event) => event.genres ?? []))];
-  return { id, work, editions: edition ? [edition] : [], status: 'in-progress',
+  return { id, work, eventIds: events.map((event) => event.id), batchId: events[0]?.source === 'paper' ? events[0].batchId : undefined, editions: edition ? [edition] : [], status: 'in-progress',
     sources: [...new Set(events.map((event) => event.source))], formats: [...new Set(events.flatMap((event) => event.format ? [event.format] : []))],
     coverUrls, genres: genres.length ? genres : work.genres,
     durationMinutes: events.find((event) => event.durationMinutes && event.durationMinutes > 0)?.durationMinutes,
@@ -53,10 +58,11 @@ function record(data: ReadsData, id: string, events: ReadingEvent[], edition?: E
 export function readingRecords(data: ReadsData): ReadingRecord[] {
   const entries = recapEntries(data);
   const result: ReadingRecord[] = entries.filter((entry) => entry.status !== 'not-read').map((entry) => ({
-    id: entry.id, work: entry.work, editions: entry.editions, status: entry.status === 'abandoned' ? 'abandoned' : 'finished',
+    id: entry.id, work: entry.work, editions: entry.editions, status: entry.status === 'in-progress' ? 'in-progress' : entry.status === 'abandoned' ? 'abandoned' : 'finished',
     sources: entry.sources, formats: entry.formats, startedAt: entry.startedAt, endedAt: entry.finishedAt,
     activityAt: entry.finishedAt ?? entry.startedAt, coverUrls: entry.coverUrls ?? [], genres: entry.genres?.length ? entry.genres : entry.work.genres,
-    minutesListened: entry.minutesListened, entry,
+    minutesListened: entry.minutesListened, entry, eventIds: entry.eventIds ?? [],
+    batchId: entry.batchId ?? data.events.find((event) => event.id === entry.id && event.source === 'paper')?.batchId,
   }));
   const usedEvents = new Set(entries.flatMap((entry) => entry.eventIds ?? []));
   const paper = data.events.filter((event) => event.source === 'paper' && event.editionId)
@@ -81,7 +87,7 @@ export function readingRecords(data: ReadsData): ReadingRecord[] {
     if (!edition || paper.some((event) => event.editionId === edition.id) || entries.some((entry) => entry.editions.some((ed) => ed.id === edition.id))) continue;
     if (result.some((item) => item.editions.some((ed) => ed.id === edition.id))) continue;
     const item = record(data, batch.id, [], edition);
-    result.push({ ...item, status: 'not-started', sources: ['paper'], formats: ['paper'] });
+    result.push({ ...item, status: 'not-started', sources: ['paper'], formats: ['paper'], batchId: batch.id });
   }
   for (const book of spotifyBooks(data.events)) {
     if (spotifyRead(data, book)) continue;
@@ -108,8 +114,9 @@ export function readingRecords(data: ReadsData): ReadingRecord[] {
   return result.sort((a, b) => (b.activityAt ?? '').localeCompare(a.activityAt ?? '') || a.work.title.localeCompare(b.work.title) || a.id.localeCompare(b.id));
 }
 
-export function filterReadingRecords(records: ReadingRecord[], query: string, source: SourceId | 'all', status: ReadingStatus | 'all') {
+export function filterReadingRecords(records: ReadingRecord[], query: string, source: SourceId | 'all', status: ReadingStatus | 'all', year: ReadingYear = 'all') {
   const term = query.trim().toLowerCase();
   return records.filter((item) => (source === 'all' || item.sources.includes(source)) && (status === 'all' || item.status === status)
+    && (year === 'all' || (year === 'undated' ? readingYear(item) === undefined : readingYear(item) === year))
     && (!term || `${item.work.title} ${item.work.authors.join(' ')}`.toLowerCase().includes(term)));
 }

@@ -1,5 +1,6 @@
 import type { BookendDB, Edition, Read, ReadingEvent } from '../db';
 import type { RecapData } from './data';
+import { reviewDates } from './reviewDates';
 
 export interface SpotifyBook {
   id: string;
@@ -81,8 +82,7 @@ export async function prepareSpotifyBooks(db: BookendDB) {
 }
 
 export async function confirmSpotifyBook(db: BookendDB, book: SpotifyBook, status: Read['status'], date: string, startedAt: string) {
-  const valid = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
-  if (status !== 'not-read' && (!valid(date) || !valid(startedAt) || startedAt > date)) throw new Error('Choose valid start and finish dates, with the start on or before the finish.');
+  const dates = reviewDates(status, date, startedAt, false);
   await db.transaction('rw', [db.events, db.reads, db.editions, db.works], async () => {
     const events = await db.events.bulkGet(book.events.map((event) => event.id));
     if (events.some((event) => !event)) throw new Error('This import was removed. Reload the recap.');
@@ -90,8 +90,7 @@ export async function confirmSpotifyBook(db: BookendDB, book: SpotifyBook, statu
     const edition = spotifyEdition(data, book);
     if (!edition) throw new Error('Book details are still being prepared. Try again.');
     const previous = spotifyRead(data, book);
-    await db.reads.put({ ...previous, id: previous?.id ?? book.id, workId: edition.workId, status, formats: ['audio'],
-      startedAt: status === 'not-read' ? undefined : `${startedAt}T12:00:00.000Z`, finishedAt: status === 'not-read' ? undefined : `${date}T12:00:00.000Z`,
+    await db.reads.put({ ...previous, id: previous?.id ?? book.id, workId: edition.workId, ...dates, formats: ['audio'],
       minutesListened: book.minutes, eventIds: book.events.map((event) => event.id), editionIds: [edition.id] });
   });
 }

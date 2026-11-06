@@ -2,7 +2,7 @@ import { Select } from '../components/Select';
 import { useState } from 'react';
 import type { Read } from '../db';
 
-export const readStatusLabel = { finished: 'Finished', abandoned: 'Abandoned', 'not-read': 'Did not read' };
+export const readStatusLabel = { 'in-progress': 'In progress', finished: 'Finished', abandoned: 'Abandoned', 'not-read': 'Did not read' };
 
 /** One explicit save keeps date edits and status changes together. */
 export function ReadReviewForm({ status, initialDate, initialStart, startOptional, disabled, onSave, onReset, resetLabel = 'Undo review' }: {
@@ -11,7 +11,7 @@ export function ReadReviewForm({ status, initialDate, initialStart, startOptiona
   onReset?: () => Promise<void>; resetLabel?: string;
 }) {
   const [choice, setChoice] = useState<Read['status'] | ''>(status ?? '');
-  const [date, setDate] = useState(initialDate);
+  const [date, setDate] = useState(status === 'in-progress' ? '' : initialDate);
   const [start, setStart] = useState(initialStart);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -25,15 +25,25 @@ export function ReadReviewForm({ status, initialDate, initialStart, startOptiona
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save. Try again.'); }
     finally { setBusy(false); }
   }
-  return <form className="read-form" onSubmit={(event) => { event.preventDefault(); void submit(); }} onChange={() => setSaved(false)}>
-    <label>Status<Select value={choice} onChange={(event) => setChoice(event.target.value as Read['status'])} disabled={busy} required>
+  return <form className="read-form" onSubmit={(event) => { event.preventDefault(); void submit(); }} onChange={() => setSaved(false)} onInput={() => setSaved(false)}>
+    <label>Status<Select value={choice} onChange={(event) => {
+      const status = event.target.value as Read['status'];
+      setChoice(status);
+      if (status === 'in-progress') setDate('');
+    }} disabled={busy} required>
       <option value="" disabled>Choose a status</option>
-      <option value="finished">Finished</option><option value="abandoned">Abandoned</option><option value="not-read">Did not read</option>
+      <option value="in-progress">In progress</option><option value="finished">Finished</option><option value="abandoned">Abandoned</option><option value="not-read">Did not read</option>
     </Select></label>
     {choice && choice !== 'not-read' && <div className="review-dates">
-      <label>Started{startOptional ? ' (optional)' : ''}<input type="date" value={start} max={date || undefined} required={!startOptional} onChange={(event) => setStart(event.target.value)} disabled={busy} /></label>
-      <label>{choice === 'abandoned' ? 'Set aside' : 'Finished'}<input type="date" value={date} min={start || undefined} required onChange={(event) => setDate(event.target.value)} disabled={busy} /></label>
+      <label>Started{startOptional && choice !== 'in-progress' ? ' (optional)' : ''}<input type="date" value={start} max={choice === 'in-progress' ? undefined : date || undefined} required={!startOptional || choice === 'in-progress'} onInput={(event) => setStart(event.currentTarget.value)} disabled={busy} /></label>
+      <label>{choice === 'abandoned' ? 'Set aside' : choice === 'in-progress' ? 'Finished (optional)' : 'Finished'}<input type="date" value={date} min={start || undefined} required={choice !== 'in-progress'} onInput={(event) => {
+        const value = event.currentTarget.value;
+        setDate(value);
+        if (choice === 'finished' && !value) setChoice('in-progress');
+        else if (choice === 'in-progress' && value) setChoice('finished');
+      }} disabled={busy} /></label>
     </div>}
+    {choice === 'in-progress' && <p className="small muted">Leave Finished empty while you’re still reading. It won’t count as a finished book in Recap.</p>}
     {choice === 'not-read' && <p className="small muted">Excluded from your recap. No dates needed.</p>}
     <div className="review-actions">
       <button className="primary" disabled={busy || disabled || !choice}>{busy ? 'Saving…' : 'Save review'}</button>
