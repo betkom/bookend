@@ -82,6 +82,8 @@ export interface ImportBatch {
   fileName: string;
   importedAt: string;
   eventCount: number;
+  /** Manual catalogue entry, including books with no reading dates. */
+  editionId?: string;
   /** SHA-256 of the file text, used to warn about importing the same file twice. */
   contentHash?: string;
 }

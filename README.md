@@ -1,6 +1,6 @@
 # Bookend
 
-Every book you read or heard, in one log. Bookend merges your reading history from
+Every book you read or heard, in one reading journal. Bookend merges your reading history from
 paper books, Libby, Audible and Spotify, then turns it into shareable quarterly and
 yearly recaps.
 
@@ -38,7 +38,7 @@ app/                 React + Vite PWA
   src/db.ts          Dexie schema: Work, Edition, Event, Read, ImportBatch
   src/importService  store/undo imports, add paper books
   src/openLibrary.ts ISBN lookup and title search
-  src/views/         Log, Import, Add book, Data (backup + undo)
+  src/views/         Reads, Loans (Libby only), Recap, Import, Add book, Data (backup + undo)
 importers/
   types.ts           the importer contract
   libby/             Libby timeline importer + tests
@@ -54,6 +54,27 @@ heavy italic Inter, pill controls, black navigation, and hot magenta actions.
 Inter is bundled locally and embedded into exported cards. Recaps use Playful
 by default, with an optional Ink palette. See [app/DESIGN.md](app/DESIGN.md) for
 shared tokens, responsive rules, and font licensing.
+
+## Reads
+
+**Reads** is the home page: search by title or author, filter by source or status,
+and expand a book to view its saved metadata and reading details. Manual books
+with neither date are **Not started**; a start date without a finish date makes
+them **In progress**. A finish date makes them **Finished**. Explicit reviews can
+also mark books **Abandoned**; **Did not read** entries are excluded.
+
+Spotify listening appears immediately, with the existing runtime rule determining
+automatic completion. Open Libby loans appear as **In progress**, tagged **Libby**
+and **On loan**. Borrowing dates are separate from reading dates. Returned loans
+need confirmation in Recap before they appear as reads. Loan-duration estimates
+never confirm completion. **Loans** appears in navigation only while imported
+Libby loan data exists. Editing and confirmation remain in their existing flows.
+
+Undated manual entries are linked to their entry batches and survive backup/restore;
+undoing an entry removes it from Reads. Older undated entries are recovered only
+when their saved title identifies a single paper edition. Ambiguous legacy entries
+are not guessed. Separate recorded rereads remain separate; cross-source merging
+is not yet supported.
 
 ## Spotify imports
 

@@ -241,14 +241,14 @@ function PaperDetails({ book, onBack, onSaved }: { book: BookCandidate; onBack: 
       <div className="row dates">
         <label>
           Started
-          <input type="date" value={startedAt} max={today()} onChange={(e) => setStartedAt(e.target.value)} />
+          <input type="date" value={startedAt} max={today()} onInput={(e) => setStartedAt(e.currentTarget.value)} />
         </label>
         <label>
           Finished
-          <input type="date" value={finishedAt} max={today()} onChange={(e) => setFinishedAt(e.target.value)} />
+          <input type="date" value={finishedAt} max={today()} onInput={(e) => setFinishedAt(e.currentTarget.value)} />
         </label>
       </div>
-      <p className="muted small">Leave “Finished” empty if you’re still reading it.</p>
+      <p className="muted small">Leave both dates empty for Not started. Enter a start date without a finish date for In progress.</p>
       {error && <div className="notice error">{error}</div>}
       <button className="primary" onClick={save} disabled={saving || !title.trim()}>
         Save book

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { HamburgerMenuIcon, Cross1Icon } from '@radix-ui/react-icons';
-import { LogView } from './views/LogView';
+import { ReadsView } from './views/ReadsView';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from './db';
+import { libbyLoans } from './loans';
 import { LoansView } from './views/LoansView';
 import { ImportView } from './views/ImportView';
 import { AddPaperView } from './views/AddPaperView';
@@ -8,7 +11,7 @@ import { DataView } from './views/DataView';
 import { RecapView } from './views/RecapView';
 
 const TABS = [
-  { id: 'log', label: 'Log' },
+  { id: 'reads', label: 'Reads' },
   { id: 'loans', label: 'Loans' },
   { id: 'recap', label: 'Recap' },
   { id: 'import', label: 'Import' },
@@ -18,7 +21,11 @@ const TABS = [
 type TabId = (typeof TABS)[number]['id'];
 
 export function App() {
-  const [tab, setTab] = useState<TabId>('log');
+  const [tab, setTab] = useState<TabId>('reads');
+  const hasLoans = useLiveQuery(async () => libbyLoans(await db.events.where('source').equals('libby').toArray()).length > 0, []);
+  useEffect(() => {
+    if (tab === 'loans' && hasLoans === false) setTab('reads');
+  }, [tab, hasLoans]);
   const [menuOpen, setMenuOpen] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -47,7 +54,7 @@ export function App() {
         </button>
       </header>
       <nav id="main-navigation" className={`tabs${menuOpen ? ' is-open' : ''}`} aria-label="Main navigation">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== 'loans' || hasLoans).map((t) => (
           <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} className={tab === t.id ? 'on' : ''} onClick={() => { setTab(t.id); setMenuOpen(false); if (menuOpen) menuButtonRef.current?.focus({ preventScroll: true }); window.scrollTo({ top: 0 }); }}>
             {t.label}
           </button>
@@ -55,11 +62,11 @@ export function App() {
       </nav>
       </div>
       <main>
-        {tab === 'log' && <LogView onGoImport={() => setTab('import')} />}
-        {tab === 'loans' && <LoansView />}
+        {tab === 'reads' && <ReadsView onGoImport={() => setTab('import')} onAddBook={() => setTab('paper')} />}
+        {tab === 'loans' && hasLoans && <LoansView />}
         {tab === 'recap' && <RecapView />}
-        {tab === 'import' && <ImportView onDone={() => setTab('log')} />}
-        {tab === 'paper' && <AddPaperView onDone={() => setTab('log')} />}
+        {tab === 'import' && <ImportView onDone={() => setTab('reads')} />}
+        {tab === 'paper' && <AddPaperView onDone={() => setTab('reads')} />}
         {tab === 'data' && <DataView />}
       </main>
       <footer className="foot">Your data stays on this device. Book info from Libby and Open Library.</footer>
