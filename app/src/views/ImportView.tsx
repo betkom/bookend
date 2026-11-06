@@ -109,7 +109,7 @@ export function ImportView({ onDone }: { onDone: () => void }) {
             </ul>
           )}
           <button className="primary" onClick={onDone}>
-            See the log
+            See your reads
           </button>
         </div>
       )}

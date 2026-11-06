@@ -133,6 +133,7 @@ export async function addPaperBook(db: BookendDB, input: PaperBookInput): Promis
       fileName: `Manual entry: ${input.title}`,
       importedAt: new Date().toISOString(),
       eventCount: events.length,
+      editionId: edition.id,
     };
     await db.importBatches.add(batch);
     if (events.length) {

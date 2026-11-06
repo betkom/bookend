@@ -110,11 +110,7 @@ main { min-width: 0; }
 .empty { padding: 3rem 1rem; text-align: center; }
 .filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 0.35fr); gap: 0.65rem; }
 .month h3 { margin: 1.75rem 0 0.75rem; color: var(--muted); font-size: 0.875rem; font-family: inherit; font-weight: 500; }
-.events, .loans, .batches, .candidates { list-style: none; margin: 0; padding: 0; }
-.events li { display: grid; grid-template-columns: 3.5rem auto minmax(0, 1fr) auto; gap: 0.65rem; align-items: baseline; padding: 1rem 0; border-bottom: 1px solid var(--line); }
-.events .what { overflow-wrap: anywhere; }
-.events .date, .events .type { color: var(--muted); font-size: 0.8rem; }
-.events .type.finished { color: var(--success); }
+.loans, .batches, .candidates { list-style: none; margin: 0; padding: 0; }
 .badge { font-size: 0.75rem; color: var(--muted); }
 .drop { position: relative; display: flex; gap: 0.5rem; align-items: center; justify-content: center; border: 1px dashed var(--color-charcoal); border-radius: var(--radius-cards); padding: 3rem 1.5rem; box-shadow: var(--shadow-card); text-align: center; cursor: pointer; background: var(--card); margin: 1.5rem 0; }
 .drop.over, .drop:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -200,11 +196,6 @@ main { min-width: 0; }
   .recap-controls { grid-template-columns: 1fr 1fr; }
   .recap-controls label:last-child { grid-column: 1 / -1; }
   .recap-review { scroll-margin-top: 7rem; }
-  .events li { grid-template-columns: 3.5rem minmax(0, 1fr); gap: 0.25rem 0.75rem; }
-  .events .date { grid-column: 1; grid-row: 1; }
-  .events .what { grid-column: 2; grid-row: 1 / span 2; }
-  .events .badge { grid-column: 1; grid-row: 2; }
-  .events .type { grid-column: 2; }
   .book-head { gap: 0.85rem; }
   .book-head img, .nocover.big { width: 68px; height: 102px; }
   .batches li { align-items: start; }
@@ -260,4 +251,28 @@ body:has(.recap-story-dialog[open]) { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .story-progress .playing::after { animation: none; transform: scaleX(1); }
+}
+
+/* Book records use the same surfaces and controls as the reading reviews. */
+.read-filters { grid-template-columns: minmax(0, 1fr) minmax(140px, 0.35fr) minmax(150px, 0.35fr); }
+.reads { list-style: none; margin: 0; padding: 0; }
+.reads > li { border-bottom: 1px solid var(--line); }
+.read-book > summary { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 0; cursor: pointer; list-style: none; }
+.read-book > summary::-webkit-details-marker { display: none; }
+.read-book > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: var(--radius-images); }
+.read-cover { width: 60px; height: 90px; object-fit: cover; flex-shrink: 0; border-radius: 8px; background: var(--soft); }
+.read-cover-placeholder { display: flex; align-items: center; justify-content: center; text-align: center; padding: 0.25rem; font-size: 0.75rem; color: var(--muted); }
+.read-heading { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 0.25rem; overflow-wrap: anywhere; }
+.read-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.read-tags .badge { padding: 0.2rem 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-controls); }
+.read-disclosure { font-size: 1.5rem; }
+.read-book[open] .read-disclosure { transform: rotate(180deg); }
+.read-details { margin: 0 0 1.25rem; padding: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-images); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.read-details dt { font-size: 0.8rem; color: var(--muted); }
+.read-details dd { margin: 0.25rem 0 0; overflow-wrap: anywhere; }
+.read-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+@media (max-width: 600px) {
+  .read-filters { grid-template-columns: 1fr; }
+  .read-details { grid-template-columns: 1fr; }
+  .read-book > summary { gap: 0.75rem; }
 }

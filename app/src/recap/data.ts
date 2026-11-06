@@ -30,7 +30,7 @@ export function recapEntries(data: RecapData): RecapEntry[] {
   const editions = new Map(data.editions.map((e) => [e.id, e]));
   const usedEvents = new Set(data.reads.flatMap((r) => r.eventIds ?? []));
   const reads = [...data.reads, ...spotifyAutomaticReads(data)];
-  const paperEvents = data.events.filter((e) => e.source === 'paper').sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  const paperEvents = data.events.filter((e) => e.source === 'paper').sort((a, b) => a.timestamp.localeCompare(b.timestamp) || Number(b.type === 'started') - Number(a.type === 'started'));
   const starts = new Map<string, string>();
   for (const event of paperEvents) {
     if (!event.editionId) continue;
