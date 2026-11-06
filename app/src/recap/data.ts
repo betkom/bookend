@@ -1,12 +1,13 @@
 import type { BookFormat, SourceId } from '@importers/types';
 import { type BookendDB, type Edition, type Read, type ReadingEvent, type Work, newId } from '../db';
-import type { Loan } from '../loans';
+import { libbyLoans, type Loan } from '../loans';
 import genreMap from './genres.json';
 import { isCoverUrl, missingCover } from './coverUrls';
 import { spotifyAutomaticReads } from './spotify';
+import { reviewDates } from './reviewDates';
 
 export interface RecapData { works: Work[]; editions: Edition[]; events: ReadingEvent[]; reads: Read[] }
-export interface RecapEntry extends Read { work: Work; editions: Edition[]; sources: SourceId[]; coverUrls?: string[] }
+export interface RecapEntry extends Read { work: Work; editions: Edition[]; sources: SourceId[]; coverUrls?: string[]; libbyBorrowedAt?: string }
 export interface Period { year: number; quarter?: number }
 export const periodLabel = ({ year, quarter }: Period) => quarter ? `Q${quarter} ${year}` : `${year}`;
 
@@ -28,6 +29,7 @@ export async function loadRecapData(db: BookendDB): Promise<RecapData> {
 export function recapEntries(data: RecapData): RecapEntry[] {
   const works = new Map(data.works.map((w) => [w.id, w]));
   const editions = new Map(data.editions.map((e) => [e.id, e]));
+  const loans = libbyLoans(data.events);
   const usedEvents = new Set(data.reads.flatMap((r) => r.eventIds ?? []));
   const reads = [...data.reads, ...spotifyAutomaticReads(data)];
   const paperEvents = data.events.filter((e) => e.source === 'paper').sort((a, b) => a.timestamp.localeCompare(b.timestamp) || Number(b.type === 'started') - Number(a.type === 'started'));
@@ -59,12 +61,15 @@ export function recapEntries(data: RecapData): RecapEntry[] {
     }
     const sources = [...new Set(linked.map((e) => e.source))];
     if (!sources.length && read.formats.includes('paper')) sources.push('paper');
+    const linkedLoans = read.formats.includes('audio') ? loans.filter((loan) => read.id === loanReadId(loan)
+      || loan.eventIds.some((id) => read.eventIds?.includes(id))) : [];
+    const libbyBorrowedAt = linkedLoans.length === 1 ? linkedLoans[0].borrowedAt : undefined;
     const listening = linked.filter((e) => e.type === 'listened' && nonnegative(e.value) !== undefined);
     const genres = recordedGenres(read.genres).length ? recordedGenres(read.genres) : recordedGenres(linked.flatMap((e) => e.genres ?? []));
     const durationMinutes = positive(read.durationMinutes) ?? linked.filter((e) => !e.format || e.format === 'audio').map((e) => positive(e.durationMinutes)).find((value) => value !== undefined);
     const coverUrls = [...new Set([...linked.filter((e) => e.source === 'libby').map((e) => e.extra?.coverUrl), work.coverUrl]
       .filter(isCoverUrl).filter((url) => !missingCover(url, work.missingCoverUrls)))];
-    return [{ ...read, genres, durationMinutes, coverUrls, minutesListened: nonnegative(read.minutesListened) ?? (listening.length ? listening.reduce((sum, e) => sum + e.value!, 0) : undefined), work, editions: matched, sources }];
+    return [{ ...read, libbyBorrowedAt, genres, durationMinutes, coverUrls, minutesListened: nonnegative(read.minutesListened) ?? (listening.length ? listening.reduce((sum, e) => sum + e.value!, 0) : undefined), work, editions: matched, sources }];
   });
 }
 
@@ -161,8 +166,15 @@ export function buildRecap(entries: RecapEntry[], period: Period) {
     months.set(month, (months.get(month) ?? 0) + 1);
     const pages = entryPages(entry);
     if (pages && (!longest || pages > longest.pages)) longest = { title: entry.work.title, pages };
-    const days = entry.startedAt ? (Date.parse(entry.finishedAt!) - Date.parse(entry.startedAt)) / 86400000 : undefined;
-    if (days !== undefined && days >= 0 && (!fastest || days < fastest.days)) fastest = { title: entry.work.title, days };
+    const start = entry.startedAt ?? (entry.formats.includes('audio') ? entry.libbyBorrowedAt : undefined);
+    const startTime = start ? Date.parse(start) : NaN;
+    const finishTime = Date.parse(entry.finishedAt!);
+    const days = (finishTime - startTime) / 86400000;
+    const sameDay = Number.isFinite(startTime) && Number.isFinite(finishTime)
+      && new Date(startTime).toISOString().slice(0, 10) === new Date(finishTime).toISOString().slice(0, 10);
+    const listened = entryMinutes(entry);
+    const shortSameDayAudio = entry.formats.includes('audio') && sameDay && listened !== undefined && listened < 30;
+    if (Number.isFinite(days) && days >= 0 && !shortSameDayAudio && (!fastest || days < fastest.days)) fastest = { title: entry.work.title, days };
 
   }
   const ranked = (map: Map<string, number>) => [...map].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -188,12 +200,9 @@ export const loanReadId = (loan: Loan) => `libby:${loan.eventIds[0]}`;
 
 /** The reader supplies an actual finish date; a return date alone never confirms a read. */
 export async function confirmLoan(db: BookendDB, loan: Loan, status: Read['status'], date: string, startedAt?: string): Promise<void> {
-  const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
-  const wasRead = status !== 'not-read';
-  if (wasRead && !validDate(date)) throw new Error('Choose a valid finish date.');
-  if (wasRead && startedAt && (!validDate(startedAt) || startedAt > date)) throw new Error('Choose a start date on or before the finish date.');
+  const dates = reviewDates(status, date, startedAt);
   if (!loan.eventIds.length) throw new Error('This loan has no source evidence.');
-  if (wasRead && loan.borrowedAt && date < loan.borrowedAt.slice(0, 10)) throw new Error('The finish date must be on or after the borrow date.');
+  if (dates.finishedAt && loan.borrowedAt && dates.finishedAt.slice(0, 10) < loan.borrowedAt.slice(0, 10)) throw new Error('The finish date must be on or after the borrow date.');
   await db.transaction('rw', [db.works, db.editions, db.events, db.reads], async () => {
     const events = await db.events.bulkGet(loan.eventIds);
     if (events.some((e) => !e)) throw new Error('This import was removed. Reload the recap.');
@@ -213,7 +222,6 @@ export async function confirmLoan(db: BookendDB, loan: Loan, status: Read['statu
         await db.editions.add(edition);
       }
     }
-    await db.reads.put({ ...previous, id: loanReadId(loan), workId: edition.workId, status, startedAt: wasRead && startedAt ? `${startedAt}T12:00:00.000Z` : undefined,
-      finishedAt: wasRead ? `${date}T12:00:00.000Z` : undefined, formats: [edition.format], editionIds: [edition.id], eventIds: loan.eventIds });
+    await db.reads.put({ ...previous, id: loanReadId(loan), workId: edition.workId, ...dates, formats: [edition.format], editionIds: [edition.id], eventIds: loan.eventIds });
   });
 }

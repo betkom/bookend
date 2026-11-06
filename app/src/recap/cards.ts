@@ -20,13 +20,18 @@ export function buildCards(stats: RecapStats, theme: Theme, covers: Record<strin
   const text = (value: string | number, x: number, y: number, size = 36, color = theme.ink, display = false) =>
     `<text x="${x}" y="${y}" fill="${color}" font-family="Inter Variable, Arial, sans-serif" font-weight="${display ? 900 : 400}" font-style="${display ? 'italic' : 'normal'}" font-size="${size}">${escapeXml(value)}</text>`;
 
-  const lines = (value: string, y: number, size = 64, max = 25, x = 88, count = 3, display = false) => {
+  const wrapRows = (value: string, max: number) => {
     const words = value.split(/\s+/); const rows: string[] = []; let row = '';
     for (const word of words) {
       const clipped = word.length > max ? `${word.slice(0, max - 1)}…` : word;
       if (row && (row + ' ' + clipped).length > max) { rows.push(row); row = clipped; } else row += (row ? ' ' : '') + clipped;
     }
     if (row) rows.push(row);
+    return rows;
+  };
+
+  const lines = (value: string, y: number, size = 64, max = 25, x = 88, count = 3, display = false) => {
+    const rows = wrapRows(value, max);
     return rows.slice(0, count).map((r, i) => text(i === count - 1 && rows.length > count ? r.slice(0, -1) + '…' : r, x, y + i * size * 1.18, size, theme.ink, display)).join('');
   };
 
@@ -63,12 +68,20 @@ export function buildCards(stats: RecapStats, theme: Theme, covers: Record<strin
   const genres = stats.genres.filter(([name, count]) => name.trim() && name.toLowerCase() !== 'uncategorised' && positive(count)).slice(0, 3);
   if (genres.length) add('genres', 'Top genres', 'Your top genres.', genres.map(([name, count], i) => {
     const y = 740 + i * 310;
-    return lines(name, y, i === 0 ? 74 : 52, i === 0 ? 20 : 28, 88, 2, i === 0) + text(bookCount(count), 88, y + 180, 38, theme.accent);
+    const size = i === 0 ? 74 : 52;
+    const max = i === 0 ? 20 : 28;
+    const rows = Math.min(wrapRows(name, max).length, 2);
+    const countY = y + (rows - 1) * size * 1.18 + 64;
+    return lines(name, y, size, max, 88, 2, i === 0) + text(bookCount(count), 88, countY, 38, theme.accent);
   }).join(''), genres.map(([name, count]) => `${name}: ${bookCount(count)}`).join('. '));
   const authors = stats.authors.filter(([name, count]) => name.trim() && positive(count)).slice(0, 3);
   if (authors.length) add('authors', 'Top authors', 'Your top authors.', authors.map(([name, count], i) => {
     const y = 740 + i * 310;
-    return lines(name, y, i === 0 ? 74 : 52, i === 0 ? 20 : 28, 88, 2, i === 0) + text(bookCount(count), 88, y + 180, 38, theme.accent);
+    const size = i === 0 ? 74 : 52;
+    const max = i === 0 ? 20 : 28;
+    const rows = Math.min(wrapRows(name, max).length, 2);
+    const countY = y + (rows - 1) * size * 1.18 + 64;
+    return lines(name, y, size, max, 88, 2, i === 0) + text(bookCount(count), 88, countY, 38, theme.accent);
   }).join(''), authors.map(([name, count]) => `${name}: ${bookCount(count)}`).join('. '));
 
   const discoveries = [
@@ -83,11 +96,11 @@ export function buildCards(stats: RecapStats, theme: Theme, covers: Record<strin
 
   if (stats.longest && positive(stats.longest.pages)) add('longest', 'Longest book', 'Your longest book.', hero(number(stats.longest.pages), 'pages', 900)
     + lines(stats.longest.title, 1350, 62, 28, 88, 3), `${stats.longest.title}: ${number(stats.longest.pages)} pages.`);
-  if (stats.fastest && positive(stats.fastest.days)) {
+  if (stats.fastest && Number.isFinite(stats.fastest.days) && stats.fastest.days >= 0) {
     const days = stats.fastest.days;
-    const value = days >= 1 ? number(days) : days * 24 >= 1 ? number(days * 24) : days * 1440 >= 1 ? number(days * 1440) : '<1';
+    const value = days === 0 ? 'Same day' : days >= 1 ? number(days) : days * 24 >= 1 ? number(days * 24) : days * 1440 >= 1 ? number(days * 1440) : '<1';
     const unit = days >= 1 ? 'days' : days * 24 >= 1 ? 'hours' : 'minutes';
-    add('fastest', 'Fastest finish', 'Your fastest finish.', hero(value, unit, 900) + lines(stats.fastest.title, 1350, 62, 28, 88, 3), `${stats.fastest.title}: ${value} ${unit}.`);
+    add('fastest', 'Fastest finish', 'Your fastest finish.', hero(value, days === 0 ? '' : unit, 900) + lines(stats.fastest.title, 1350, 62, 28, 88, 3), days === 0 ? `${stats.fastest.title}: finished the same day.` : `${stats.fastest.title}: ${value} ${unit}.`);
   }
   if (stats.busiest && positive(stats.busiest[1])) {
     const month = new Date(stats.busiest[0] + '-01T00:00:00Z').toLocaleDateString('en', { month: 'long', timeZone: 'UTC' });

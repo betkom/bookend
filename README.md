@@ -57,8 +57,9 @@ shared tokens, responsive rules, and font licensing.
 
 ## Reads
 
-**Reads** is the home page: search by title or author, filter by source or status,
-and expand a book to view its saved metadata and reading details. Manual books
+**Reads** is the home page: search by title or author, filter by source, status, or year,
+and expand a book to view its saved metadata and reading details. The year filter
+uses the record’s reading/activity date; choose Undated for books without dates. Manual books
 with neither date are **Not started**; a start date without a finish date makes
 them **In progress**. A finish date makes them **Finished**. Explicit reviews can
 also mark books **Abandoned**; **Did not read** entries are excluded.
@@ -68,7 +69,11 @@ automatic completion. Open Libby loans appear as **In progress**, tagged **Libby
 and **On loan**. Borrowing dates are separate from reading dates. Returned loans
 need confirmation in Recap before they appear as reads. Loan-duration estimates
 never confirm completion. **Loans** appears in navigation only while imported
-Libby loan data exists. Editing and confirmation remain in their existing flows.
+Libby loan data exists. Expand any book in Reads to review it as In progress, Finished,
+Abandoned, or Did not read, and edit its reading dates using the same form as
+Recap. A start date without a finish date saves as In progress and stays out of
+finished-book totals. Adding a finish date changes it to Finished. Changes update both views. Undo review restores the original recorded
+history; a saved-review notice keeps Undo available when a book leaves the list.
 
 Undated manual entries are linked to their entry batches and survive backup/restore;
 undoing an entry removes it from Reads. Older undated entries are recovered only
@@ -156,6 +161,19 @@ runtime is used only if the returned audio runtimes agree and the edition list i
 complete. Missing metadata is never inferred from loan duration. Full cross-format
 merging remains phase 2 work. Genre mapping is editable in
 `app/src/recap/genres.json`.
+
+Fastest finish compares elapsed time from start to finish across paper, ebook,
+audio, and mixed-format finished reads. Spotify uses its first and last imported
+listening timestamps unless reviewed dates override them. Libby audiobooks use
+the matching loan’s borrow date when no start date was entered. Entered dates
+always win; ebook and paper starts are not inferred from borrowing. Borrowing
+alone never confirms completion. Same-day audiobook finishes with less than
+30 recorded listening minutes are excluded from Fastest finish; exactly 30
+minutes qualifies. Same day means the same UTC calendar date. Missing listening
+time is not treated as zero, and a catalogue runtime is not actual listening
+time. This cutoff only affects Fastest finish, not confirmed book totals.
+Matching start and finish timestamps show **Same day** rather than an exact
+reading duration. Finish dates determine the recap period.
 
 Top authors rank by finished reads in the selected period, with each coauthor
 credited once per read. Discoveries shows unique authors, authors first read,

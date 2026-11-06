@@ -39,10 +39,25 @@ describe('adaptive recap stories', () => {
       formats: { paper: 0, ebook: -1, audio: 1 }, sources: { paper: 0, libby: 0, audible: 0, spotify: 1 },
       genres: [['Uncategorised', 1], ['Fantasy', 0], [' ', 2]] as [string, number][],
       authors: [['An author', 0], ['Another', NaN]] as [string, number][],
-      longest: { title: 'No pages', pages: Infinity }, fastest: { title: 'Same day', days: 0 }, busiest: ['2026-01', 0] as [string, number],
+      longest: { title: 'No pages', pages: Infinity }, fastest: { title: 'Invalid interval', days: -1 }, busiest: ['2026-01', 0] as [string, number],
     };
     expect(buildCards(stats, themes[0]).map((card) => card.id)).toEqual(['formats', 'covers-1', 'total', 'summary']);
     for (const total of [0, -1, NaN, Infinity]) expect(buildCards({ ...stats, total }, themes[0])).toEqual([]);
+  });
+
+
+  it('shows a same-day fastest finish without claiming zero reading time', () => {
+    const stats = buildRecap([{ ...read, startedAt: read.finishedAt }], { year: 2026 });
+    expect(stats.fastest).toEqual({ title: 'A book', days: 0 });
+    for (const theme of themes) {
+      const card = buildCards(stats, theme).find((card) => card.id === 'fastest');
+      expect(card?.description).toBe('A book: finished the same day.');
+      expect(card?.svg).toContain('Same day');
+      expect(card?.svg).not.toMatch(/0 days|0 hours|0 minutes/);
+    }
+    for (const days of [-1, NaN, Infinity]) {
+      expect(buildCards({ ...stats, fastest: { title: 'Invalid', days } }, themes[0]).some((card) => card.id === 'fastest')).toBe(false);
+    }
   });
 
   it('preserves small positive listening values instead of rounding them to zero', () => {

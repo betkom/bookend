@@ -57,11 +57,11 @@ export interface ReadingEvent {
   extra?: Record<string, string | number | boolean | undefined>;
 }
 
-/** One confirmed reading of a work. Paper finish events can also be derived on demand. */
+/** One confirmed reading or reading-in-progress of a work. Paper finish events can also be derived on demand. */
 export interface Read {
   id: string;
   workId: string;
-  status: 'finished' | 'abandoned' | 'not-read';
+  status: 'in-progress' | 'finished' | 'abandoned' | 'not-read';
   startedAt?: string;
   finishedAt?: string;
   formats: BookFormat[];
@@ -73,6 +73,8 @@ export interface Read {
   /** Evidence explicitly confirmed for this read; also used when undoing imports. */
   eventIds?: string[];
   editionIds?: string[];
+  /** Manual-entry provenance when there are no dated events to link. */
+  batchId?: string;
 }
 
 /** One imported file, or one manual entry session for paper books. */

@@ -43,7 +43,7 @@ async function storeBatch(db: BookendDB, batch: ImportBatch, events: (RawEvent &
 export async function undoBatch(db: BookendDB, batchId: string): Promise<void> {
   await db.transaction('rw', db.importBatches, db.events, db.reads, async () => {
     const removed = new Set(await db.events.where('batchId').equals(batchId).primaryKeys());
-    const affected = await db.reads.filter((read) => read.eventIds?.some((id) => removed.has(id)) ?? false).primaryKeys();
+    const affected = await db.reads.filter((read) => read.batchId === batchId || (read.eventIds?.some((id) => removed.has(id)) ?? false)).primaryKeys();
     await db.reads.bulkDelete(affected);
     await db.events.where('batchId').equals(batchId).delete();
     await db.importBatches.delete(batchId);

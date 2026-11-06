@@ -9,7 +9,7 @@ Thanks for helping. The two easiest ways in are **adding an importer** and
   the public Libby/OverDrive catalogue; imported cover URLs take priority.
 - Importers parse files the user downloaded. No scraping, no stored credentials.
 - Every importer ships with a synthetic fixture and a test.
-- Never commit a real export, even anonymised. Use the git-ignored `private-exports/` folder.
+- Never commit a real export, even anonymised. Use the git-ignored `private-exports/` folder for your private exports.
 
 ## Add an importer
 
