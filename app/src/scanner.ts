@@ -1,105 +1,109 @@
 import { normaliseIsbn } from './isbn';
 
-/**
- * Scans ISBN barcodes from the camera. Uses the native BarcodeDetector API when
- * available (Chrome/Android, Safari 17+ on some platforms) and falls back to ZXing.
- */
-
-interface NativeDetector {
-  detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]>;
-}
-declare global {
-  interface Window {
-    BarcodeDetector?: {
-      new (opts: { formats: string[] }): NativeDetector;
-      getSupportedFormats(): Promise<string[]>;
-    };
-  }
-}
-
 export interface ScanHandle {
   stop(): void;
 }
 
-async function nativeDetector(): Promise<NativeDetector | null> {
-  const BD = window.BarcodeDetector;
-  if (!BD) return null;
+type FocusConstraint = MediaTrackConstraintSet & { focusMode: 'continuous' };
+
+async function requestContinuousFocus(track: MediaStreamTrack | undefined) {
   try {
-    const formats = await BD.getSupportedFormats();
-    if (!formats.includes('ean_13')) return null;
-    return new BD({ formats: ['ean_13'] });
+    const capabilities = track?.getCapabilities?.() as (MediaTrackCapabilities & { focusMode?: string[] }) | undefined;
+    if (!track || !capabilities?.focusMode?.includes('continuous')) return;
+
+    const constraints = track.getConstraints();
+    const focus: FocusConstraint = { focusMode: 'continuous' };
+    await track.applyConstraints({ ...constraints, advanced: [...(constraints.advanced ?? []), focus] });
   } catch {
-    return null;
+    // A focus request is optional. Keep scanning with the camera's current settings.
   }
 }
 
-/**
- * Start scanning into the given <video>. Calls onIsbn once with the first valid
- * ISBN found, then stops the camera.
- */
+/** Call onIsbn once for the first valid ISBN, then release the camera. */
 export async function startIsbnScan(
   video: HTMLVideoElement,
   onIsbn: (isbn: string) => void,
   onError: (message: string) => void,
+  signal?: AbortSignal,
+  onStatus?: (message: string) => void,
 ): Promise<ScanHandle> {
-  const detector = await nativeDetector();
-
-  if (detector) {
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    } catch {
-      onError('Camera access was denied or is unavailable.');
-      return { stop() {} };
+  let stopped = false;
+  let stream: MediaStream | undefined;
+  let decoder: ScanHandle | undefined;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    decoder?.stop();
+    stream?.getTracks().forEach((track) => track.stop());
+    if (stream && video.srcObject === stream) video.srcObject = null;
+    signal?.removeEventListener('abort', stop);
+  };
+  const handle = { stop };
+  const fail = (message: string) => {
+    if (stopped) return;
+    stop();
+    onError(message);
+  };
+  const accept = (raw: string) => {
+    if (stopped) return false;
+    const isbn = normaliseIsbn(raw);
+    if (!isbn) {
+      onStatus?.(`Read barcode ${raw.slice(0, 80)}, but it is not a valid ISBN-10 or ISBN-13.`);
+      return false;
     }
-    video.srcObject = stream;
-    await video.play();
-    let stopped = false;
-    const stop = () => {
-      stopped = true;
-      stream.getTracks().forEach((t) => t.stop());
-      video.srcObject = null;
-    };
+    stop();
+    onIsbn(isbn);
+    return true;
+  };
 
-    const tick = async () => {
-      if (stopped) return;
-      try {
-        const codes = await detector.detect(video);
-        for (const c of codes) {
-          const isbn = normaliseIsbn(c.rawValue);
-          if (isbn) {
-            stop();
-            onIsbn(isbn);
-            return;
-          }
-        }
-      } catch {
-        /* frame not ready; keep trying */
-      }
-      setTimeout(tick, 200);
-    };
-    tick();
-    return { stop };
+  if (signal?.aborted) return handle;
+  signal?.addEventListener('abort', stop, { once: true });
+  if (!navigator.mediaDevices?.getUserMedia) {
+    fail('Camera access is unavailable. Open Bookend over HTTPS, or type the ISBN instead.');
+    return handle;
   }
 
-  // Fallback: ZXing, loaded lazily so browsers with native support don't download it.
+  onStatus?.('Requesting camera access…');
   try {
-    const { BrowserMultiFormatReader } = await import('@zxing/browser');
-    const reader = new BrowserMultiFormatReader();
-    let done = false;
-    const controls = await reader.decodeFromVideoDevice(undefined, video, (result) => {
-      if (done || !result) return;
-      const isbn = normaliseIsbn(result.getText());
-      if (isbn) {
-        done = true;
-        controls.stop();
-        onIsbn(isbn);
-      }
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
     });
-    return { stop: () => controls.stop() };
-  } catch {
-    onError('Could not start the camera. You can type the ISBN or search by title instead.');
-    return { stop() {} };
+    // Permission can finish after the user has closed the scanner.
+    if (stopped) {
+      stream.getTracks().forEach((track) => track.stop());
+      return handle;
+    }
+    void requestContinuousFocus(stream.getVideoTracks()[0]);
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    // A play() promise may remain pending even when camera frames exist.
+    // Start frame acquisition independently; the decoder checks readiness.
+    void video.play().catch(() => {
+      fail('Could not play the camera preview. Stop and restart the scanner.');
+    });
+  } catch (error) {
+    const denied = error instanceof Error && error.name === 'NotAllowedError';
+    fail(denied
+      ? 'Camera access was denied. Allow camera access in your browser settings, then try again.'
+      : 'Could not start the camera. You can type the ISBN or search by title instead.');
+    return handle;
   }
-}
 
+  try {
+    const { scanCameraFrames } = await import('./cameraDecoder');
+    if (!stopped) {
+      const controls = scanCameraFrames(video, accept, fail, onStatus);
+      if (stopped) controls.stop();
+      else decoder = controls;
+    }
+  } catch {
+    fail('Could not start barcode recognition. Try again, or type the ISBN.');
+  }
+  return handle;
+}
