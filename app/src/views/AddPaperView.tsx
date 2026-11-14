@@ -3,6 +3,7 @@ import { db } from '../db';
 import { addPaperBook } from '../importService';
 import { normaliseIsbn } from '../isbn';
 import { lookupIsbn, searchBooks, type BookCandidate } from '../openLibrary';
+import { scanGuide } from '../scanGuide';
 import { startIsbnScan, type ScanHandle } from '../scanner';
 
 type Step = 'find' | 'details';
@@ -38,10 +39,35 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanRef = useRef<ScanHandle | null>(null);
 
-  useEffect(() => () => scanRef.current?.stop(), []);
+  useEffect(() => {
+    if (!scanning || !videoRef.current) return;
+    const controller = new AbortController();
+    void startIsbnScan(
+      videoRef.current,
+      (code) => {
+        setScanning(false);
+        setIsbn(code);
+        void byIsbn(code);
+      },
+      (message) => {
+        setScanning(false);
+        setError(message);
+      },
+      controller.signal,
+      setScanStatus,
+    ).then((handle) => {
+      if (controller.signal.aborted) handle.stop();
+      else scanRef.current = handle;
+    });
+    return () => {
+      controller.abort();
+      scanRef.current = null;
+    };
+  }, [scanning]);
 
   async function byIsbn(raw: string) {
     const clean = normaliseIsbn(raw);
@@ -75,28 +101,11 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
     }
   }
 
-  async function toggleScan() {
-    if (scanning) {
-      scanRef.current?.stop();
-      setScanning(false);
-      return;
-    }
-    setScanning(true);
+  function toggleScan() {
+    if (scanning) scanRef.current?.stop();
     setError('');
-    // Wait a tick so the <video> is rendered.
-    await new Promise((r) => setTimeout(r, 0));
-    scanRef.current = await startIsbnScan(
-      videoRef.current!,
-      (code) => {
-        setScanning(false);
-        setIsbn(code);
-        byIsbn(code);
-      },
-      (msg) => {
-        setScanning(false);
-        setError(msg);
-      },
-    );
+    setScanStatus('Starting camera…');
+    setScanning(!scanning);
   }
 
   return (
@@ -108,7 +117,22 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
         <button className="primary" onClick={toggleScan}>
           {scanning ? 'Stop camera' : 'Scan barcode'}
         </button>
-        {scanning && <video ref={videoRef} className="scanner" playsInline muted />}
+        {scanning && (
+          <>
+            <div className="scanner-preview">
+              <video ref={videoRef} className="scanner" playsInline muted aria-label="Barcode camera preview" />
+              <span
+                aria-hidden="true"
+                className="scanner-guide"
+                style={{ inset: `${scanGuide.yInset * 100}% ${scanGuide.xInset * 100}%` }}
+              />
+            </div>
+            <p className="muted small" role="status">{scanStatus}</p>
+            <p className="muted small">
+              Line up the ISBN barcode in the box, with white space on both sides. If the bars look blurry, move the book back slightly.
+            </p>
+          </>
+        )}
         <form
           className="row"
           onSubmit={(e) => {
@@ -116,7 +140,7 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
             byIsbn(isbn);
           }}
         >
-          <input aria-label="ISBN" inputMode="numeric" placeholder="978…" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
+          <input aria-label="ISBN" inputMode="text" placeholder="ISBN-10 or ISBN-13" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
           <button type="submit" disabled={busy || !isbn}>
             Look up
           </button>

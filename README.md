@@ -31,6 +31,11 @@ npm run try-import -- <export file> --source spotify   # or --source libby
 
 Requires Node 20+.
 
+In **Add book**, line up the ISBN barcode inside the camera guide or type the
+ISBN printed on the book. Continuous autofocus is requested when supported.
+Camera access requires HTTPS or localhost. Bookend decodes camera frames locally
+with ZXing; only the detected ISBN is used for the Open Library lookup.
+
 ## Repo layout
 
 ```
