@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import type { BookFormat } from '@importers/types';
+import { Select } from '../components/Select';
 import { db } from '../db';
 import { addPaperBook } from '../importService';
 import { normaliseIsbn } from '../isbn';
-import { lookupIsbn, searchBooks, type BookCandidate } from '../openLibrary';
+import { lookupAudioRuntime, lookupIsbn, searchBooks, type BookCandidate } from '../openLibrary';
 import { scanGuide } from '../scanGuide';
 import { startIsbnScan, type ScanHandle } from '../scanner';
 
@@ -89,7 +91,7 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
   }
 
   async function byTitle() {
-    if (!title.trim()) return;
+    if (!title.trim() && !author.trim()) return;
     setError('');
     setBusy(true);
     try {
@@ -110,7 +112,7 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
 
   return (
     <section>
-      <h2>Add a paper book</h2>
+      <h2>Add a book</h2>
 
       <div className="card">
         <h3>Scan or type the ISBN</h3>
@@ -148,7 +150,7 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
       </div>
 
       <div className="card">
-        <h3>Or search by title</h3>
+        <h3>Or search by title or author</h3>
         <form
           className="stack"
           onSubmit={(e) => {
@@ -157,8 +159,8 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
           }}
         >
           <input aria-label="Title" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <input aria-label="Author (optional)" placeholder="Author (optional)" value={author} onChange={(e) => setAuthor(e.target.value)} />
-          <button type="submit" disabled={busy || !title.trim()}>
+          <input aria-label="Author" placeholder="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
+          <button type="submit" disabled={busy || (!title.trim() && !author.trim())}>
             Search
           </button>
         </form>
@@ -167,7 +169,7 @@ function FindBook({ onPick }: { onPick: (b: BookCandidate) => void }) {
           <ul className="candidates">
             {results.map((r) => (
               <li key={r.openLibraryWorkId ?? r.title}>
-                <button onClick={() => onPick(r)}>
+                <button onClick={() => onPick({ ...r, isbn: undefined, openLibraryEditionId: undefined })}>
                   {r.coverUrl ? <img src={r.coverUrl} alt="" loading="lazy" /> : <span className="nocover" />}
                   <span>
                     <strong>{r.title}</strong>
@@ -201,7 +203,27 @@ const today = () => new Date().toISOString().slice(0, 10);
 function PaperDetails({ book, onBack, onSaved }: { book: BookCandidate; onBack: () => void; onSaved: () => void }) {
   const [title, setTitle] = useState(book.title);
   const [authors, setAuthors] = useState(book.authors.join(', '));
+  const [format, setFormat] = useState<BookFormat>('paper');
   const [pages, setPages] = useState(book.pages ? String(book.pages) : '');
+  const [hours, setHours] = useState(book.durationMinutes ? String(book.durationMinutes / 60) : '');
+  const [durationSource, setDurationSource] = useState(book.durationSource);
+  const hoursEdited = useRef(false);
+  const [loadingRuntime, setLoadingRuntime] = useState(false);
+
+  useEffect(() => {
+    if (format !== 'audio' || book.durationMinutes || !book.openLibraryWorkId) return;
+    let cancelled = false;
+    setLoadingRuntime(true);
+    void lookupAudioRuntime(book.openLibraryWorkId).then((minutes) => {
+      if (!cancelled && !hoursEdited.current && minutes) {
+        setHours(String(minutes / 60));
+        setDurationSource('open-library-work');
+      }
+    }).catch(() => { /* The length can still be entered manually. */ }).finally(() => {
+      if (!cancelled) setLoadingRuntime(false);
+    });
+    return () => { cancelled = true; setLoadingRuntime(false); };
+  }, [format, book]);
   const [startedAt, setStartedAt] = useState('');
   const [finishedAt, setFinishedAt] = useState(today());
   const [saving, setSaving] = useState(false);
@@ -209,6 +231,14 @@ function PaperDetails({ book, onBack, onSaved }: { book: BookCandidate; onBack: 
 
   async function save() {
     if (!title.trim()) return;
+    if (format === 'audio' && hours && (!Number.isFinite(Number(hours)) || Number(hours) <= 0)) {
+      setError('Enter a valid audiobook length in hours.');
+      return;
+    }
+    if (format !== 'audio' && pages && (!Number.isSafeInteger(Number(pages)) || Number(pages) <= 0)) {
+      setError('Enter a valid number of pages.');
+      return;
+    }
     if (startedAt && finishedAt && startedAt > finishedAt) {
       setError('The start date is after the finish date.');
       return;
@@ -217,6 +247,9 @@ function PaperDetails({ book, onBack, onSaved }: { book: BookCandidate; onBack: 
     try {
       await addPaperBook(db, {
         title: title.trim(),
+        format,
+        durationMinutes: format === 'audio' && hours ? Number(hours) * 60 : undefined,
+        durationSource: format === 'audio' && hours ? (hoursEdited.current ? 'manual' : durationSource) : undefined,
         authors: authors
           .split(',')
           .map((a) => a.trim())
@@ -224,8 +257,8 @@ function PaperDetails({ book, onBack, onSaved }: { book: BookCandidate; onBack: 
         openLibraryWorkId: book.openLibraryWorkId,
         openLibraryEditionId: book.openLibraryEditionId,
         isbn: book.isbn,
-        pages: pages ? Number(pages) : undefined,
-        pagesSource: pages && Number(pages) === book.pages ? book.pagesSource : undefined,
+        pages: format !== 'audio' && pages ? Number(pages) : undefined,
+        pagesSource: format !== 'audio' && pages && Number(pages) === book.pages ? book.pagesSource : undefined,
         coverUrl: book.coverUrl,
         openLibrarySubjects: book.subjects,
         startedAt: startedAt || undefined,
@@ -256,9 +289,22 @@ function PaperDetails({ book, onBack, onSaved }: { book: BookCandidate; onBack: 
             <input value={authors} onChange={(e) => setAuthors(e.target.value)} />
           </label>
           <label>
+            Format
+            <Select value={format} onChange={(e) => setFormat(e.target.value as BookFormat)}>
+              <option value="paper">Paper</option>
+              <option value="ebook">E-book</option>
+              <option value="audio">Audiobook</option>
+            </Select>
+          </label>
+          {format === 'audio' ? <label>
+            Total listening hours
+            <input type="number" min="0" step="any" inputMode="decimal" placeholder="e.g. 10.5" value={hours} onChange={(e) => { hoursEdited.current = true; setHours(e.target.value); }} />
+          </label> : <label>
             Pages
             <input inputMode="numeric" value={pages} onChange={(e) => setPages(e.target.value.replace(/\D/g, ''))} />
-          </label>
+          </label>}
+          {format === 'audio' && loadingRuntime && <p className="muted small" role="status">Looking up audiobook length…</p>}
+          <p className="muted small">Leave the length blank if unknown. Open Library information is filled in when available.</p>
           {book.isbn && <p className="muted small">ISBN {book.isbn}</p>}
         </div>
       </div>
@@ -274,7 +320,7 @@ function PaperDetails({ book, onBack, onSaved }: { book: BookCandidate; onBack: 
       </div>
       <p className="muted small">Leave both dates empty for Not started. Enter a start date without a finish date for In progress.</p>
       {error && <div className="notice error">{error}</div>}
-      <button className="primary" onClick={save} disabled={saving || !title.trim()}>
+      <button className="primary" onClick={save} disabled={saving || !title.trim() || (format === 'audio' && loadingRuntime)}>
         Save book
       </button>
     </section>

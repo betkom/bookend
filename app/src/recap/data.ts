@@ -44,7 +44,7 @@ export function recapEntries(data: RecapData): RecapEntry[] {
     if (!edition || usedEvents.has(event.id)) continue;
     if (reads.some((r) => r.workId === edition.workId && r.finishedAt === event.timestamp)) continue;
     reads.push({ id: event.id, workId: edition.workId, status: 'finished', finishedAt: event.timestamp,
-      startedAt: start, formats: ['paper'], pagesRead: event.value ?? edition.pages,
+      startedAt: start, formats: [event.format ?? edition.format], pagesRead: edition.format === 'audio' ? undefined : event.value ?? edition.pages,
       eventIds: [event.id], editionIds: [edition.id] });
   }
   return reads.flatMap((read) => {

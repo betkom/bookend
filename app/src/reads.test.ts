@@ -39,6 +39,30 @@ describe('manual reading records', () => {
     expect(list[0].endedAt?.slice(0, 10)).toBe(finishedAt);
   });
 
+  it.each(['ebook', 'audio'] as const)('keeps manual %s entries and lengths in reading history and recaps', async (format) => {
+    const input = { title: format, authors: [], format, pages: format === 'ebook' ? 240 : undefined,
+      durationMinutes: format === 'audio' ? 630 : undefined, durationSource: 'manual' as const };
+    const { edition } = await addPaperBook(db, input);
+    expect((await records())[0]).toMatchObject({ status: 'not-started', formats: [format] });
+    await addPaperDate(db, edition.id, 'started', '2026-01-01');
+    expect((await records())[0]).toMatchObject({ status: 'in-progress', formats: [format] });
+    await addPaperDate(db, edition.id, 'finished', '2026-01-10');
+    expect((await records())[0]).toMatchObject({ status: 'finished', formats: [format] });
+    const stats = buildRecap(recapEntries(await loadReadsData(db)), { year: 2026 });
+    expect(stats.formats[format]).toBe(1);
+    expect(stats.pages).toBe(format === 'ebook' ? 240 : 0);
+    expect(stats.runtimeMinutes).toBe(format === 'audio' ? 630 : 0);
+    expect(stats.minutes).toBe(0);
+  });
+
+  it('uses a directly entered audiobook finish and runtime in the recap', async () => {
+    const { edition } = await addPaperBook(db, { title: 'Audio', authors: [], format: 'audio',
+      durationMinutes: 90, durationSource: 'manual', finishedAt: '2026-02-01' });
+    expect(edition).toMatchObject({ format: 'audio', durationMinutes: 90, durationSource: 'manual' });
+    expect((await records())[0]).toMatchObject({ status: 'finished', formats: ['audio'] });
+    expect(buildRecap(recapEntries(await loadReadsData(db)), { year: 2026 })).toMatchObject({ pages: 0, minutes: 0, runtimeMinutes: 90 });
+  });
+
   it('updates an undated entry with later dates and preserves rereads', async () => {
     const { edition } = await addPaperBook(db, { title: 'Again', authors: [] });
     await addPaperDate(db, edition.id, 'started', '2026-01-01');

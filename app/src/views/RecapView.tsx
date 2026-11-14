@@ -166,7 +166,7 @@ export function RecapView() {
           {message && <p role="status" className="small">{message}</p>}
         </div>
       </div>
-    </> : <div className="card"><h3>No confirmed finishes in {periodLabel(period)}</h3><p>Add a paper book with a finish date, review your imported books below, or choose another period.</p>{stats.abandoned > 0 && <p>{stats.abandoned} abandoned reads recorded.</p>}</div>}
+    </> : <div className="card"><h3>No confirmed finishes in {periodLabel(period)}</h3><p>Add a book with a finish date, review your imported books below, or choose another period.</p>{stats.abandoned > 0 && <p>{stats.abandoned} abandoned reads recorded.</p>}</div>}
     {stats.total > 0 && <details className="card recap-review book-settings"><summary>Book details & settings</summary>
       <label className="recap-checkbox"><input type="checkbox" checked={showAbandoned} onChange={(e) => setShowAbandoned(e.target.checked)} /> Show abandoned count</label>
       <p className="small muted">Books appear by finish date (UTC). Missing details come from Open Library; estimates are labelled.</p>

@@ -169,13 +169,13 @@ interface OLSearchDoc {
   subject?: string[];
 }
 
-/** Title (and optional author) search, for books without a scannable barcode. */
+/** Search by title, author, or both, for books without a scannable barcode. */
 export async function searchBooks(title: string, author = '', fetchFn: typeof fetch = fetch): Promise<BookCandidate[]> {
   const params = new URLSearchParams({
-    title,
     limit: '10',
     fields: 'key,title,author_name,cover_i,first_publish_year,number_of_pages_median,isbn,cover_edition_key,subject',
   });
+  if (title) params.set('title', title);
   if (author) params.set('author', author);
   const res = await getJson<{ docs: OLSearchDoc[] }>(`${OL}/search.json?${params}`, fetchFn);
   return (res?.docs ?? []).map((d) => ({
