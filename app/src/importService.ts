@@ -1,4 +1,4 @@
-import type { Importer, RawEvent } from '@importers/types';
+import type { BookFormat, Importer, RawEvent } from '@importers/types';
 import { type BookendDB, type Edition, type ImportBatch, type ReadingEvent, type Work, newId } from './db';
 
 export async function sha256(text: string): Promise<string> {
@@ -57,6 +57,9 @@ export async function undoBatch(db: BookendDB, batchId: string): Promise<void> {
 export interface PaperBookInput {
   title: string;
   authors: string[];
+  format?: BookFormat;
+  durationMinutes?: number;
+  durationSource?: Edition['durationSource'];
   openLibraryWorkId?: string;
   openLibraryEditionId?: string;
   isbn?: string;
@@ -73,7 +76,7 @@ export interface PaperBookInput {
 const toIso = (d: string) => (d.length === 10 ? new Date(d + 'T12:00:00').toISOString() : new Date(d).toISOString());
 
 /**
- * Add a paper book: finds or creates its Work and Edition, then records its
+ * Add a manual book: finds or creates its Work and Edition, then records its
  * start/finish dates as events in a new 'paper' batch (so the entry can be undone).
  */
 export async function addPaperBook(db: BookendDB, input: PaperBookInput): Promise<{ work: Work; edition: Edition; batch: ImportBatch }> {
@@ -99,33 +102,44 @@ export async function addPaperBook(db: BookendDB, input: PaperBookInput): Promis
       await db.works.update(work.id, { metadataReviewedAt: work.metadataReviewedAt });
     }
 
+    const format = input.format ?? 'paper';
     let edition = input.isbn
-      ? await db.editions.where('isbn').equals(input.isbn).and((e) => e.format === 'paper').first()
+      ? await db.editions.where('isbn').equals(input.isbn).and((e) => e.format === format).first()
       : undefined;
     if (!edition) {
       edition = {
         id: newId(),
         workId: work.id,
-        format: 'paper',
+        format,
         isbn: input.isbn,
         openLibraryEditionId: input.openLibraryEditionId,
-        pages: input.pages,
-        pagesSource: input.pagesSource,
+        pages: format === 'audio' ? undefined : input.pages,
+        pagesSource: format === 'audio' ? undefined : input.pagesSource,
+        durationMinutes: format === 'audio' ? input.durationMinutes : undefined,
+        durationSource: format === 'audio' ? input.durationSource : undefined,
       };
       await db.editions.add(edition);
+    } else {
+      const patch = format === 'audio' && input.durationMinutes !== undefined
+        && (input.durationSource === 'manual' || !edition.durationMinutes)
+        ? { durationMinutes: input.durationMinutes, durationSource: input.durationSource }
+        : format !== 'audio' && input.pages !== undefined && (!input.pagesSource || !edition.pages)
+          ? { pages: input.pages, pagesSource: input.pagesSource } : {};
+      await db.editions.update(edition.id, patch);
+      edition = { ...edition, ...patch };
     }
 
     const base = {
       source: 'paper' as const,
       rawTitle: input.title,
       rawAuthor: input.authors.join(', '),
-      format: 'paper' as const,
+      format,
       isbn: input.isbn,
       editionId: edition.id,
     };
     const events: (RawEvent & { editionId: string })[] = [];
     if (input.startedAt) events.push({ ...base, type: 'started', timestamp: toIso(input.startedAt) });
-    if (input.finishedAt) events.push({ ...base, type: 'finished', timestamp: toIso(input.finishedAt), value: input.pages });
+    if (input.finishedAt) events.push({ ...base, type: 'finished', timestamp: toIso(input.finishedAt), value: format === 'audio' ? undefined : input.pages });
 
     const batch: ImportBatch = {
       id: newId(),
@@ -162,9 +176,9 @@ export async function addPaperDate(db: BookendDB, editionId: string, type: 'star
       rawTitle: work?.title ?? '',
       rawAuthor: work?.authors.join(', ') ?? '',
       timestamp: toIso(date),
-      format: 'paper',
+      format: edition.format,
       isbn: edition.isbn,
-      value: type === 'finished' ? edition.pages : undefined,
+      value: type === 'finished' && edition.format !== 'audio' ? edition.pages : undefined,
       editionId,
     },
   ]);

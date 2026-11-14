@@ -13,7 +13,7 @@ yearly recaps.
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 1 | App shell, storage, importer contract, Libby importer, paper books (scan/search), backup | ✅ in progress |
+| 1 | App shell, storage, importer contract, Libby importer, manual books (scan/search; paper, e-book, or audiobook), backup | ✅ in progress |
 | 2 | Matching to Open Library works, cross-format merge, review inbox | Partially implemented: ISBN/title matching and Libby/Spotify review are available; full cross-format merging and a unified matching/merge inbox remain planned |
 | 3 | Quarterly/yearly recap cards (1080×1920) and sharing | ✅ implemented |
 | 4 | Audible importer (audible-cli export) | planned |
@@ -41,7 +41,7 @@ with ZXing; only the detected ISBN is used for the Open Library lookup.
 ```
 app/                 React + Vite PWA
   src/db.ts          Dexie schema: Work, Edition, Event, Read, ImportBatch
-  src/importService  store/undo imports, add paper books
+  src/importService  store/undo imports, add books manually
   src/openLibrary.ts ISBN lookup and title search
   src/views/         Reads, Loans (Libby only), Recap, Import, Add book, Data (backup + undo)
 importers/

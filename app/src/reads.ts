@@ -12,7 +12,7 @@ export type ReadingStatus = 'not-started' | 'in-progress' | 'finished' | 'abando
 export const readingStatusLabels: Record<ReadingStatus, string> = {
   'not-started': 'Not started', 'in-progress': 'In progress', finished: 'Finished', abandoned: 'Abandoned',
 };
-export const sourceLabels: Record<SourceId, string> = { paper: 'Paper', libby: 'Libby', spotify: 'Spotify', audible: 'Audible' };
+export const sourceLabels: Record<SourceId, string> = { paper: 'Manual', libby: 'Libby', spotify: 'Spotify', audible: 'Audible' };
 export const formatLabels: Record<BookFormat, string> = { paper: 'Paper', ebook: 'Ebook', audio: 'Audiobook' };
 export interface ReadingRecord {
   id: string;
@@ -87,7 +87,7 @@ export function readingRecords(data: ReadsData): ReadingRecord[] {
     if (!edition || paper.some((event) => event.editionId === edition.id) || entries.some((entry) => entry.editions.some((ed) => ed.id === edition.id))) continue;
     if (result.some((item) => item.editions.some((ed) => ed.id === edition.id))) continue;
     const item = record(data, batch.id, [], edition);
-    result.push({ ...item, status: 'not-started', sources: ['paper'], formats: ['paper'], batchId: batch.id });
+    result.push({ ...item, status: 'not-started', sources: ['paper'], formats: [edition.format], batchId: batch.id });
   }
   for (const book of spotifyBooks(data.events)) {
     if (spotifyRead(data, book)) continue;
